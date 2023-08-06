@@ -1,0 +1,92 @@
+
+I. The list of random generator test algorithms:
+
+1. The Frequency (Monobit) Test.
+	1a. FIPS 140-1
+	1b. FIPS 1402
+
+2. The Poker Test
+	2a. FIPS 140-1
+	2b. FIPS 140-2
+
+3. The Runs Test
+
+4. The Longest Run Test.
+
+5. Maurer Universal Statistical Test:
+	5a) Coron improvment of the test.
+
+6. Gap Test (?)
+
+7. Autocorrelation Test (?)
+
+
+II. Groups of random algorithms
+
+	1. FIPS 140-1
+
+	2. FIPS 140-2
+
+	3. List of algorithms from the article "Accelerated implementation for
+	   testing IID assumption of NIST SP 800-90B using GPU". Algorithms
+	   used in the permutation testing with the Fisher-Yates shuffle
+	   algorithm:
+
+	   a) Excursion test
+	   b) Number of directional runs
+	   c) Length of directional runs
+	   d) Number of increases and decreases
+	   e) Number of runs based on the median
+	   f) Length of runs based on the median
+	   g) Average collision test statistic
+	   h) Maximum collision test statistic
+	   i) Periodicity test
+	   j) Covariance test
+	   k) Compression test*
+
+	4. Algorithms from the NIST suite "A Statistical Test Suite for
+	   Random and Pseudorandom Number Generators for Cryptographic
+	   Applications":
+
+	   a) Frequency (Monobit) Test
+	   b) Frequency Test within a Block
+	   c) Runs Test
+	   d) Test For the Longest Run of Ones in a Block.
+	   e) Binary Matrix Rank Test
+	   f) Discrete Fourier Transform (Spectral) Test
+	   g) Non-overlapping Template Match Test.
+	   h) Overlapping Template Matching Test.
+	   i) Maurer Universal Statistical Test
+	   j) Linear Complexity Test
+	   h) Serial Test.
+	   i) Aproximate Entropy Test.
+	   j) Cumulative Sums (CuSums) Test.
+	   k) Random Excursion Test.
+	   l) Random Excursion Variant Test.
+	   m) Lempel-Ziv Test.
+
+	5. DIEHARD Suite:
+
+	   a) 3D Sphere
+	   b) Bit Stream
+	   c) Birthday Spacing
+	   d) Count-the-1's on Stream
+	   e) Count-the-1's on Byte
+	   f) Craps
+	   g) DNA
+	   h) Minimum Distance
+	   i) OPSO
+	   j) OQSO
+	   k) Overlapping 5-Permutation
+	   l) Overlapping Sum
+	   m) Parking Lot
+	   n) Rank31
+	   o) Rank32
+	   p) Rank68
+	   q) Squeeze
+
+III. Test Vectors for the algorithms:
+	- how to get or generate
+	- are they reliable ?
+	
+
