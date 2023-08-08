@@ -119,3 +119,9 @@ II. Groups of random algorithms
 III. Test Vectors for the algorithms:
 	- how to get or generate
 	- are they reliable ?
+
+IV. Math
+	- Error function and its approximations.
+	- Gamma function and its variants.
+	- Gamma functions and theirs approximations
+	- Function to calculate special functions.
