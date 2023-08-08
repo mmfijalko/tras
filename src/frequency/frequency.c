@@ -50,7 +50,7 @@ static uint16_t mmask16[17] = {
 	0xff80, 0xffc0, 0xffe0, 0xfff0, 0xfff8, 0xfffc, 0xfffe, 0xffff,
 };
 
-unsigned int
+static unsigned int
 frequency_sum1(void *data, unsigned int bits)
 {
 	unsigned int sum, i, n;
@@ -70,7 +70,7 @@ frequency_sum1(void *data, unsigned int bits)
 
 #define	min(a, b) (((a) < (b)) ? (a) : (b))
 
-unsigned int
+static unsigned int
 frequency_sum2(void *data, unsigned int bits)
 {
 	unsigned int sum, n;
@@ -89,5 +89,51 @@ frequency_sum2(void *data, unsigned int bits)
 		p++;
 	}
 	return (sum);
+}
+
+/*
+ * Parameters of frequency test:
+ * - number of bits, N
+ * 
+ * Constant value:
+ * - minimum number of bits for the test, Nmin
+ *
+ * Test result evaluation:
+ * - P-value
+ */
+
+int
+frequency_init(void *ctx)
+{
+
+	return (0);
+}
+
+int
+frequency_set_params(void *ctx, void *param)
+{
+
+	return (0);
+}
+
+int
+frequency_test(void *ctx, void *data, unsigned int bits)
+{
+
+	return (0);
+}
+
+int
+frequency_update(void *ctx, void *data, unsigned int bits)
+{
+
+	return (0);
+}
+
+int
+frequency_final(void *ctx)
+{
+
+	return (0);
 }
 
