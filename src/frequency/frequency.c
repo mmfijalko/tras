@@ -33,3 +33,61 @@
 /*
  * TODO: content, frequency test algorithms.
  */
+
+#define	DATA_BYTE(p, i)	(((uint8_t *)(p))[i])
+
+static uint8_t mmask8[9] = {
+	0x00, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff
+};
+
+static uint8_t lmask8[9] = {
+	0x00, 0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0xff
+};
+
+static uint16_t mmask16[17] = {
+	0x0000,
+	0x8000, 0xc000, 0xe000, 0xf000, 0xf800, 0xfc00, 0xfe00, 0xff00,
+	0xff80, 0xffc0, 0xffe0, 0xfff0, 0xfff8, 0xfffc, 0xfffe, 0xffff,
+};
+
+unsigned int
+frequency_sum1(void *data, unsigned int bits)
+{
+	unsigned int sum, i, n;
+	uint8_t *p;
+
+	n = bits & ~0x07;
+	p = (uint8_t *)data;
+
+	for (i = 0, sum = 0; i < n; i++, p++)
+		sum += hamming8[*p];
+	n = bits & 0x07;
+	if (n > 0) 
+		sum += hamming8[*p & mmask8[n]];
+
+	return (sum);
+}
+
+#define	min(a, b) (((a) < (b)) ? (a) : (b))
+
+unsigned int
+frequency_sum2(void *data, unsigned int bits)
+{
+	unsigned int sum, n;
+	uint8_t m, *p;
+
+	p = (uint8_t *)data;
+	sum = 0;
+
+	while (bits > 0) {
+		n = min(bits, 8);
+		for (m = 0x80; n > 0; n--, m >>= 1) {
+			if (*p & m)
+				sum++;
+		}
+		bits -= n;
+		p++;
+	}
+	return (sum);
+}
+
