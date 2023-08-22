@@ -64,5 +64,8 @@
 #define	LINEARC_MIN_M		500
 #define	LINEARC_MAX_M		5000
 
+#define	LINEARC_MIN_K		6
+#define	LINEARC_MAX_K		6
+
 #endif
 
