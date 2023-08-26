@@ -37,4 +37,6 @@
  * TODO: content, cumulative sums test definitions
  */
 
+TRAS_DECLARE_ALGO(cusum);
+
 #endif

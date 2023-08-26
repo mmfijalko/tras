@@ -33,3 +33,82 @@
 /*
  * TODO: content, cumulative sums test implementation.
  */
+
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
+
+#include <tras.h>
+#include <cusum.h>
+
+int
+cusum_init(struct tras_ctx *ctx, void *params)
+{
+
+	if (ctx == NULL || params != NULL)
+		return (EINVAL);
+
+	tras_ctx_init(ctx);
+
+	ctx->algo = &cusum_algo;
+	ctx->state = TRAS_STATE_INIT;
+
+	return (0);
+}
+
+int
+cusum_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+cusum_final(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+int
+cusum_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+	int error;
+
+	error = cusum_update(ctx, data, bits);
+	if (error != 0)
+		return (error);
+
+	error = cusum_final(ctx);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+cusum_restart(struct tras_ctx *ctx, void *params)
+{
+
+	return (0);
+}
+
+int
+cusum_free(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+const struct tras_algo cusum_algo = {
+	.name =		"Cusum",
+	.desc =		"Cumulative Sums Test",
+	.version = 	{ 0, 1, 1 },
+	.init =		cusum_init,
+	.update =	cusum_update,
+	.test =		cusum_test,
+	.final =	cusum_final,
+	.restart =	cusum_restart,
+	.free =		cusum_free,
+};
