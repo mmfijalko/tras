@@ -36,5 +36,7 @@
 #define	FOURIER_MIN_BITS	1000
 #define	FOURIER_MAX_BITS	0
 
+TRAS_DECLARE_ALGO(fourier);
+
 #endif
 

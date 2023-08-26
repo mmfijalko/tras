@@ -40,5 +40,82 @@
  * No maximum number of bits.
  */
 
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
 
+#include <tras.h>
+#include <hamming8.h>
+#include <fourier.h>
 
+int
+fourier_init(struct tras_ctx *ctx, void *params)
+{
+
+	if (ctx == NULL || params != NULL)
+		return (EINVAL);
+
+	tras_ctx_init(ctx);
+
+	ctx->algo = &fourier_algo;
+	ctx->state = TRAS_STATE_INIT;
+
+	return (0);
+}
+
+int
+fourier_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+fourier_final(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+int
+fourier_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+	int error;
+
+	error = fourier_update(ctx, data, bits);
+	if (error != 0)
+		return (error);
+
+	error = fourier_final(ctx);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+fourier_restart(struct tras_ctx *ctx, void *params)
+{
+
+	return (0);
+}
+
+int
+fourier_free(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+const struct tras_algo fourier_algo = {
+	.name =		"Fourier",
+	.desc =		"Discrete Fourier Transform (Spectral) Test",
+	.version = 	{ 0, 1, 1 },
+	.init =		fourier_init,
+	.update =	fourier_update,
+	.test =		fourier_test,
+	.final =	fourier_final,
+	.restart =	fourier_restart,
+	.free =		fourier_free,
+};
