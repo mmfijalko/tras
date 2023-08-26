@@ -30,6 +30,13 @@
  *
  */
 
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
+
+#include <tras.h>
+#include <blkfreq.h>
+
 struct blkfreq_ctx {
 	uint8_t *	block;	/* buffer for not full block */
 	unsigned int	nbits;	/* total number of bits updated */
@@ -50,63 +57,84 @@ blkfreq_allow_final(struct blkfreq_ctx *c)
 #define	blkfreq_min_nbits(M)	BLKFREQ_MIN_N
 #define	blkfreq_max_nbits(M)	((M) * 100 - 1)
 
+#ifdef __not_yet__
 typedef int (*tras_test_init_t)(void *);
 typedef int (*tras_test_test_t)(void *);
 typedef int (*tras_test_update_t)(void *);
 typedef int (*tras_test_final_t)(void *);
 typedef int (*tras_test_reset_t)(void *);
 typedef int (*tras_test_free_t)(void *);
+#endif
 
 static int
 blkfreq_allow_update(struct blkfreq_ctx *c)
 {
+
+	return (0);
 }
 
 int
-blkfreq_init(void *ctx)
+blkfreq_init(struct tras_ctx *ctx, void *params)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+blkfreq_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+blkfreq_final(struct tras_ctx *ctx)
 {
 
 	return (0);
 }
 
 int
-blkfreq_set_params(void *ctx, void *param)
+blkfreq_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+	int error;
+
+	error = blkfreq_update(ctx, data, bits);
+	if (error != 0)
+		return (error);
+
+	error = blkfreq_final(ctx);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+blkfreq_restart(struct tras_ctx *ctx, void *params)
 {
 
 	return (0);
 }
 
 int
-blkfreq_test(void *ctx, void *data, unsigned int bits)
+blkfreq_free(struct tras_ctx *ctx)
 {
 
 	return (0);
 }
 
-int
-blkfreq_update(void *ctx, void *data, unsigned int bits)
-{
+const struct tras_algo blkfreq_algo = {
+	.name =		"Blkfreq",
+	.desc =		"Frequency Test within a Block",
+	.version = 	{ 0, 1, 1 },
+	.init =		blkfreq_init,
+	.update =	blkfreq_update,
+	.test =		blkfreq_test,
+	.final =	blkfreq_final,
+	.restart =	blkfreq_restart,
+	.free =		blkfreq_free,
+};
 
-	return (0);
-}
-
-int
-blkfreq_final(void *ctx)
-{
-
-	return (0);
-}
-
-int
-blkfreq_reset(void *ctx)
-{
-
-	return (0);
-}
-
-int
-blkfreq_free(void *ctx)
-{
-
-	return (0);
-}
