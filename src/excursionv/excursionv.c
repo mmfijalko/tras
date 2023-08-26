@@ -34,3 +34,82 @@
  * TODO: implementation for Random Excursion Variant Test.
  */
 
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
+
+#include <tras.h>
+#include <hamming8.h>
+#include <excursionv.h>
+
+int
+excursionv_init(struct tras_ctx *ctx, void *params)
+{
+
+	if (ctx == NULL || params != NULL)
+		return (EINVAL);
+
+	tras_ctx_init(ctx);
+
+	ctx->algo = &excursionv_algo;
+	ctx->state = TRAS_STATE_INIT;
+
+	return (0);
+}
+
+int
+excursionv_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+excursionv_final(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+int
+excursionv_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+	int error;
+
+	error = excursionv_update(ctx, data, bits);
+	if (error != 0)
+		return (error);
+
+	error = excursionv_final(ctx);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+excursionv_restart(struct tras_ctx *ctx, void *params)
+{
+
+	return (0);
+}
+
+int
+excursionv_free(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+const struct tras_algo excursionv_algo = {
+	.name =		"ExcursionV",
+	.desc =		"Random Excursion Variant Test",
+	.version = 	{ 0, 1, 1 },
+	.init =		excursionv_init,
+	.update =	excursionv_update,
+	.test =		excursionv_test,
+	.final =	excursionv_final,
+	.restart =	excursionv_restart,
+	.free =		excursionv_free,
+};

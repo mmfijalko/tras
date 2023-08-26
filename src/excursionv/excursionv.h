@@ -43,5 +43,7 @@
 #define	EXCURSION_V_MIN_BITS	1000000
 #define	EXCURSION_V_MAX_BITS	0
 
+TRAS_DECLARE_ALGO(excursionv);
+
 #endif
 
