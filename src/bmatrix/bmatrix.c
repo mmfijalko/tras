@@ -50,3 +50,83 @@
  *
  * Question: should number of rows and columns be equal (M == N) ?
  */
+
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
+
+#include <tras.h>
+#include <hamming8.h>
+#include <bmatrix.h>
+
+int
+bmatrix_init(struct tras_ctx *ctx, void *params)
+{
+
+	if (ctx == NULL || params != NULL)
+		return (EINVAL);
+
+	tras_ctx_init(ctx);
+
+	ctx->algo = &bmatrix_algo;
+	ctx->state = TRAS_STATE_INIT;
+
+	return (0);
+}
+
+int
+bmatrix_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+bmatrix_final(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+int
+bmatrix_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+	int error;
+
+	error = bmatrix_update(ctx, data, bits);
+	if (error != 0)
+		return (error);
+
+	error = bmatrix_final(ctx);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+bmatrix_restart(struct tras_ctx *ctx, void *params)
+{
+
+	return (0);
+}
+
+int
+bmatrix_free(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+const struct tras_algo bmatrix_algo = {
+	.name =		"BMatrix",
+	.desc =		"Binary Matrix Rank Test",
+	.version = 	{ 0, 1, 1 },
+	.init =		bmatrix_init,
+	.update =	bmatrix_update,
+	.test =		bmatrix_test,
+	.final =	bmatrix_final,
+	.restart =	bmatrix_restart,
+	.free =		bmatrix_free,
+};

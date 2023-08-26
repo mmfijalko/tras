@@ -47,5 +47,7 @@
 
 #define	BMATRIX_MAX_Q	0
 
+TRAS_DECLARE_ALGO(bmatrix);
+
 #endif
 
