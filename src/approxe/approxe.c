@@ -30,3 +30,74 @@
  *
  */
 
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
+
+#include <tras.h>
+#include <approxe.h>
+
+int
+approxe_init(struct tras_ctx *ctx, void *params)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+approxe_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+approxe_final(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+int
+approxe_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+	int error;
+
+	error = approxe_update(ctx, data, bits);
+	if (error != 0)
+		return (error);
+
+	error = approxe_final(ctx);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+approxe_restart(struct tras_ctx *ctx, void *params)
+{
+
+	return (0);
+}
+
+int
+approxe_free(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+const struct tras_algo approxe_algo = {
+	.name =		"Approxe",
+	.desc =		"Approximate Entropy Test",
+	.version = 	{ 0, 1, 1 },
+	.init =		approxe_init,
+	.update =	approxe_update,
+	.test =		approxe_test,
+	.final =	approxe_final,
+	.restart =	approxe_restart,
+	.free =		approxe_free,
+};
