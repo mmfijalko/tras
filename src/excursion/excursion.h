@@ -37,4 +37,6 @@
  * TODO: content, random walk excursion test definitions.
  */
 
+TRAS_DECLARE_ALGO(excursion);
+
 #endif

@@ -33,3 +33,83 @@
 /*
  * TODO: content, random excursion walk test implementation.
  */
+
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
+
+#include <tras.h>
+#include <hamming8.h>
+#include <excursion.h>
+
+int
+excursion_init(struct tras_ctx *ctx, void *params)
+{
+
+	if (ctx == NULL || params != NULL)
+		return (EINVAL);
+
+	tras_ctx_init(ctx);
+
+	ctx->algo = &excursion_algo;
+	ctx->state = TRAS_STATE_INIT;
+
+	return (0);
+}
+
+int
+excursion_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+excursion_final(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+int
+excursion_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+	int error;
+
+	error = excursion_update(ctx, data, bits);
+	if (error != 0)
+		return (error);
+
+	error = excursion_final(ctx);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+excursion_restart(struct tras_ctx *ctx, void *params)
+{
+
+	return (0);
+}
+
+int
+excursion_free(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+const struct tras_algo excursion_algo = {
+	.name =		"Excursion",
+	.desc =		"Random Excursion Test",
+	.version = 	{ 0, 1, 1 },
+	.init =		excursion_init,
+	.update =	excursion_update,
+	.test =		excursion_test,
+	.final =	excursion_final,
+	.restart =	excursion_restart,
+	.free =		excursion_free,
+};
