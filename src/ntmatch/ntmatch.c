@@ -34,3 +34,82 @@
  * TODO: implementation for the Non-overlapping Template Matching Test.
  */
 
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
+
+#include <tras.h>
+#include <hamming8.h>
+#include <ntmatch.h>
+
+int
+ntmatch_init(struct tras_ctx *ctx, void *params)
+{
+
+	if (ctx == NULL || params != NULL)
+		return (EINVAL);
+
+	tras_ctx_init(ctx);
+
+	ctx->algo = &ntmatch_algo;
+	ctx->state = TRAS_STATE_INIT;
+
+	return (0);
+}
+
+int
+ntmatch_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+ntmatch_final(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+int
+ntmatch_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+	int error;
+
+	error = ntmatch_update(ctx, data, bits);
+	if (error != 0)
+		return (error);
+
+	error = ntmatch_final(ctx);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+ntmatch_restart(struct tras_ctx *ctx, void *params)
+{
+
+	return (0);
+}
+
+int
+ntmatch_free(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+const struct tras_algo ntmatch_algo = {
+	.name =		"ntmatch",
+	.desc =		"Non-Overlapping Template Matching Test",
+	.version = 	{ 0, 1, 1 },
+	.init =		ntmatch_init,
+	.update =	ntmatch_update,
+	.test =		ntmatch_test,
+	.final =	ntmatch_final,
+	.restart =	ntmatch_restart,
+	.free =		ntmatch_free,
+};

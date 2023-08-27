@@ -37,4 +37,6 @@
  * TODO: Non-overlapping Template Matching Test definitions.
  */
 
+TRAS_DECLARE_ALGO(ntmatch);
+
 #endif
