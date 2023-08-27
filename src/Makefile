@@ -13,7 +13,6 @@ all: hamming8.o
 	for dir in ${SUBDIR}; do \
 		${MAKE} -C $$dir; \
 	done;
-#	+${MAKE} -C ${SUBDIR}
 
 %.o: %.c %.h
 	${CC} ${CFLAGS} ${INC} -c $< -o $@
