@@ -37,4 +37,6 @@
  * TODO: content, frequency test definitions.
  */
 
+TRAS_DECLARE_ALGO(frequency);
+
 #endif

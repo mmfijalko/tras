@@ -30,6 +30,14 @@
  *
  */
 
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
+
+#include <tras.h>
+#include <hamming8.h>
+#include <frequency.h>
+
 /*
  * TODO: content, frequency test algorithms.
  */
@@ -48,6 +56,12 @@ static uint16_t mmask16[17] = {
 	0x0000,
 	0x8000, 0xc000, 0xe000, 0xf000, 0xf800, 0xfc00, 0xfe00, 0xff00,
 	0xff80, 0xffc0, 0xffe0, 0xfff0, 0xfff8, 0xfffc, 0xfffe, 0xffff,
+};
+
+static uint16_t	lmask16[17] = {
+	0x0000,
+	0x0001, 0x0003, 0x0007, 0x000f, 0x001f, 0x003f, 0x007f, 0x00ff,
+	0x01ff, 0x03ff, 0x07ff, 0x0fff, 0x1fff, 0x3fff, 0x7fff, 0xffff,
 };
 
 static unsigned int
@@ -103,37 +117,73 @@ frequency_sum2(void *data, unsigned int bits)
  */
 
 int
-frequency_init(void *ctx)
+frequency_init(struct tras_ctx *ctx, void *params)
+{
+
+	if (ctx == NULL || params != NULL)
+		return (EINVAL);
+
+	tras_ctx_init(ctx);
+
+	ctx->algo = &frequency_algo;
+	ctx->state = TRAS_STATE_INIT;
+
+	return (0);
+}
+
+int
+frequency_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+frequency_final(struct tras_ctx *ctx)
 {
 
 	return (0);
 }
 
 int
-frequency_set_params(void *ctx, void *param)
+frequency_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+	int error;
+
+	error = frequency_update(ctx, data, bits);
+	if (error != 0)
+		return (error);
+
+	error = frequency_final(ctx);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+frequency_restart(struct tras_ctx *ctx, void *params)
 {
 
 	return (0);
 }
 
 int
-frequency_test(void *ctx, void *data, unsigned int bits)
+frequency_free(struct tras_ctx *ctx)
 {
 
 	return (0);
 }
 
-int
-frequency_update(void *ctx, void *data, unsigned int bits)
-{
-
-	return (0);
-}
-
-int
-frequency_final(void *ctx)
-{
-
-	return (0);
-}
-
+const struct tras_algo frequency_algo = {
+	.name =		"Frequency Test",
+	.desc =		"Generic Frequency (Monobit) Test",
+	.version = 	{ 0, 1, 1 },
+	.init =		frequency_init,
+	.update =	frequency_update,
+	.test =		frequency_test,
+	.final =	frequency_final,
+	.restart =	frequency_restart,
+	.free =		frequency_free,
+};
