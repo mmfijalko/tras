@@ -30,10 +30,12 @@
  *
  */
 
+#include <stdint.h>
+#include <hamming8.h>
+
 /*
  * TODO: temporary definition here.
  */
-typedef unsigned char uint8_t;
 
 const uint8_t hamming8[256] = {
 	0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
