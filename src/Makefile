@@ -1,3 +1,6 @@
+#
+# Building all tests in the subdirectories, Marek Marcin Fijałkowski, 2023
+#
 
 CC := cc
 CFLAGS= -g 
