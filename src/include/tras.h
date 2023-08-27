@@ -33,12 +33,81 @@
 #ifndef __TRAS_H__
 #define	__TRAS_H__
 
+struct tras_algo;
+
+/*
+ * Generic structure for test context.
+ */
+struct tras_ctx {
+	int		state;		/* state of the context */
+	void *		context;	/* private algorith context */
+	void *		params;		/* algorithm parameters */
+	const struct tras_algo *algo;	/* desciption of algorithm */
+};
+
+#define TRAS_STATE_NONE		0	/* state before initialization */
+#define TRAS_STATE_INIT		1	/* state when correctly inited */
+#define TRAS_STATE_FINAL	2	/* state when test finalized */
+#define TRAS_STATE_ERROR	3	/* error state unrecover */
+
+/*
+ * Algorithm methods definition.
+ */
+typedef int (*tras_test_init_t)(struct tras_ctx *, void *);
+typedef int (*tras_test_test_t)(struct tras_ctx *, void *, unsigned int);
+typedef int (*tras_test_update_t)(struct tras_ctx *, void *, unsigned int);
+typedef int (*tras_test_final_t)(struct tras_ctx *);
+typedef int (*tras_test_restart_t)(struct tras_ctx *, void *);
+typedef int (*tras_test_free_t)(struct tras_ctx *);
+
+/*
+ * Version structure for algorithms.
+ */
+struct tras_version {
+	int	major;				/* major number */
+	int	minor;				/* minor number */
+	int	revision;			/* revision number */
+};
+
 /*
  * The structure to describe statistical test algorithm.
  */
 struct tras_algo {
 	const char *		name;		/* algorithm short name */
-	struct tras_algo *	parent;		/* parent algorithm */
+	const char *		desc;		/* algorithm description */
+	struct tras_version	version;	/* algorithm version */
+	tras_test_init_t	init;		/* initialize method */
+	tras_test_test_t	test;		/* test and final method */
+	tras_test_update_t	update;		/* update data method */
+	tras_test_final_t	final;		/* finalize method */
+	tras_test_restart_t	restart;	/* restar test method */
+	tras_test_free_t	free;		/* free memory method */
 };
+
+#define TRAS_DEFINE_ALGO(pref, name, desc, parent, mj, mn, b)	\
+	const struct tras_algo pref##_algo = {			\
+		.name =	name;					\
+		.desc = desc;					\
+		.version = { mj, mn, b };			\
+		.init =	pref##_init;				\
+		.update = pref##_update;			\
+		.test = pref##_test;				\
+		.final = pref##_final;				\
+		.restart = pref##_restart;			\
+		.free = pref##_free;				\
+	}
+
+#define TRAS_DECLARE_ALGO(pref)					\
+	extern const struct tras_algo pref##_algo
+
+void tras_ctx_init(struct tras_ctx *);
+void tras_ctx_free(struct tras_ctx *);
+
+int tras_test_init(struct tras_ctx *, struct tras_algo *, void *);
+int tras_test_update(struct tras_ctx *, void *, unsigned int);
+int tras_test_test(struct tras_ctx *, void *, unsigned int);
+int tras_test_final(struct tras_ctx *);
+int tras_test_restart(struct tras_ctx *, void *);
+int tras_test_free(struct tras_ctx *);
 
 #endif
