@@ -67,5 +67,7 @@
 #define	LINEARC_MIN_K		6
 #define	LINEARC_MAX_K		6
 
+TRAS_DECLARE_ALGO(lcomplex);
+
 #endif
 
