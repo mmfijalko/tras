@@ -30,6 +30,14 @@
  *
  */
 
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
+
+#include <tras.h>
+#include <hamming8.h>
+#include <runs.h>
+
 #define	abs(a)		(((a) < 0) ? -(a) : (a))
 
 /*
@@ -66,44 +74,73 @@ runs_runs_count2(void *data, unsigned int bits)
 }
 
 int
-runs_init(void *ctx)
+runs_init(struct tras_ctx *ctx, void *params)
+{
+
+	if (ctx == NULL || params != NULL)
+		return (EINVAL);
+
+	tras_ctx_init(ctx);
+
+	ctx->algo = &runs_algo;
+	ctx->state = TRAS_STATE_INIT;
+
+	return (0);
+}
+
+int
+runs_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+runs_final(struct tras_ctx *ctx)
 {
 
 	return (0);
 }
 
 int
-runs_reset(void *ctx)
+runs_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+	int error;
+
+	error = runs_update(ctx, data, bits);
+	if (error != 0)
+		return (error);
+
+	error = runs_final(ctx);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+runs_restart(struct tras_ctx *ctx, void *params)
 {
 
 	return (0);
 }
 
 int
-runs_update(void *ctx, void *data, unsigned int bits)
+runs_free(struct tras_ctx *ctx)
 {
 
 	return (0);
 }
 
-int
-runs_test(void *ctx, void *data, unsigned int bits)
-{
-
-	return (0);
-}
-
-int
-runs_final(void *ctx, void *data, unsigned int bits)
-{
-
-	return (0);
-}
-
-int
-runs_free(void *ctx)
-{
-
-	return (0);
-}
-
+const struct tras_algo runs_algo = {
+	.name =		"Runs",
+	.desc =		"Runs Test",
+	.version = 	{ 0, 1, 1 },
+	.init =		runs_init,
+	.update =	runs_update,
+	.test =		runs_test,
+	.final =	runs_final,
+	.restart =	runs_restart,
+	.free =		runs_free,
+};

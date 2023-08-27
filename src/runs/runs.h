@@ -48,4 +48,6 @@
  */
 #define	RUNS_FREQ_CHECK	0x01
 
+TRAS_DECLARE_ALGO(runs);
+
 #endif
