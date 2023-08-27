@@ -30,8 +30,88 @@
  *
  */
 
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
+
+#include <tras.h>
+#include <hamming8.h>
+#include <maurer.h>
+
 /*
  * TODO: content, Maurer (Universal) test implmentation.
  *
  * TODO: Coron improvement of the Maurer test.
  */
+
+int
+maurer_init(struct tras_ctx *ctx, void *params)
+{
+
+	if (ctx == NULL || params != NULL)
+		return (EINVAL);
+
+	tras_ctx_init(ctx);
+
+	ctx->algo = &maurer_algo;
+	ctx->state = TRAS_STATE_INIT;
+
+	return (0);
+}
+
+int
+maurer_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+maurer_final(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+int
+maurer_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+	int error;
+
+	error = maurer_update(ctx, data, bits);
+	if (error != 0)
+		return (error);
+
+	error = maurer_final(ctx);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+maurer_restart(struct tras_ctx *ctx, void *params)
+{
+
+	return (0);
+}
+
+int
+maurer_free(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+const struct tras_algo maurer_algo = {
+	.name =		"Universal",
+	.desc =		"Maurer's Universal Statistical Test",
+	.version = 	{ 0, 1, 1 },
+	.init =		maurer_init,
+	.update =	maurer_update,
+	.test =		maurer_test,
+	.final =	maurer_final,
+	.restart =	maurer_restart,
+	.free =		maurer_free,
+};

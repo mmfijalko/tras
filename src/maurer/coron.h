@@ -30,13 +30,9 @@
  *
  */
 
-#ifndef __TRAS_MAURER_H__
-#define	__TRAS_MAURER_H__
+#ifndef __TRAS_CORON_H__
+#define	__TRAS_CORON_H__
 
-/*
- * TODO: content, Maurer (Universal) test definitions.
- */
-
-TRAS_DECLARE_ALGO(maurer);
+TRAS_DECLARE_ALGO(coron);
 
 #endif

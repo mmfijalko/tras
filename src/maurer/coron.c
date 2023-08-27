@@ -30,13 +30,82 @@
  *
  */
 
-#ifndef __TRAS_MAURER_H__
-#define	__TRAS_MAURER_H__
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
 
-/*
- * TODO: content, Maurer (Universal) test definitions.
- */
+#include <tras.h>
+#include <hamming8.h>
+#include <coron.h>
 
-TRAS_DECLARE_ALGO(maurer);
+int
+coron_init(struct tras_ctx *ctx, void *params)
+{
 
-#endif
+	if (ctx == NULL || params != NULL)
+		return (EINVAL);
+
+	tras_ctx_init(ctx);
+
+	ctx->algo = &coron_algo;
+	ctx->state = TRAS_STATE_INIT;
+
+	return (0);
+}
+
+int
+coron_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+coron_final(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+int
+coron_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+	int error;
+
+	error = coron_update(ctx, data, bits);
+	if (error != 0)
+		return (error);
+
+	error = coron_final(ctx);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+coron_restart(struct tras_ctx *ctx, void *params)
+{
+
+	return (0);
+}
+
+int
+coron_free(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+const struct tras_algo coron_algo = {
+	.name =		"Coron",
+	.desc =		"Maurer Test with Coron Correction",
+	.version = 	{ 0, 1, 1 },
+	.init =		coron_init,
+	.update =	coron_update,
+	.test =		coron_test,
+	.final =	coron_final,
+	.restart =	coron_restart,
+	.free =		coron_free,
+};
