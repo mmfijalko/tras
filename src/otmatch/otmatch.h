@@ -37,4 +37,6 @@
  * TODO: Overlapping Template Matching Test definitions.
  */
 
+TRAS_DECLARE_ALGO(otmatch);
+
 #endif

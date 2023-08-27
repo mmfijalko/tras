@@ -34,3 +34,82 @@
  * TODO: implementation for the Overlapping Template Matching Test.
  */
 
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
+
+#include <tras.h>
+#include <hamming8.h>
+#include <otmatch.h>
+
+int
+otmatch_init(struct tras_ctx *ctx, void *params)
+{
+
+	if (ctx == NULL || params != NULL)
+		return (EINVAL);
+
+	tras_ctx_init(ctx);
+
+	ctx->algo = &otmatch_algo;
+	ctx->state = TRAS_STATE_INIT;
+
+	return (0);
+}
+
+int
+otmatch_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+
+	/* todo: */
+	return (0);
+}
+
+int
+otmatch_final(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+int
+otmatch_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+	int error;
+
+	error = otmatch_update(ctx, data, bits);
+	if (error != 0)
+		return (error);
+
+	error = otmatch_final(ctx);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+otmatch_restart(struct tras_ctx *ctx, void *params)
+{
+
+	return (0);
+}
+
+int
+otmatch_free(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+const struct tras_algo otmatch_algo = {
+	.name =		"otmatch",
+	.desc =		"Overlapping Template Matching Test",
+	.version = 	{ 0, 1, 1 },
+	.init =		otmatch_init,
+	.update =	otmatch_update,
+	.test =		otmatch_test,
+	.final =	otmatch_final,
+	.restart =	otmatch_restart,
+	.free =		otmatch_free,
+};
