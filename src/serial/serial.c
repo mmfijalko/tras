@@ -38,8 +38,16 @@
  * Input size recomendation:
  *
  * m < floor(log2(n)) - 2
- *
  */
+
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
+#include <stdlib.h>
+
+#include <tras.h>
+#include <hamming8.h>
+#include <serial.h>
 
 struct serial_params {
 	unsigned int	m;	/* length of overlapping bit block */
@@ -51,23 +59,25 @@ struct serial_ctx {
 	unsigned int *	m1;	/* frequency table for m-1 bits blocks */
 	unsigned int *	m2;	/* frequency table for m-2 bits blocks */
 	unsigned int	nbits;	/* number of bits processed */
+	unsigned int	m;	/* length of bit bloc from params */
 };
 
 int
-serial_init(void *ctx)
-{
-
-	return (0);
-}
-
-int
-serial_set_params(void *ctx, struct serial_params *p)
+serial_init(struct tras_ctx *ctx, void *params)
 {
 	struct serial_ctx *c;
-	unsigned int sb, sm;
+	struct serial_params *p = params;
+	unsigned int sb, sm, m;
 
-	if (m < SERIAL_MIN_M || m > SERIAL_MAX_M)
+	if (ctx == NULL || params == NULL)
 		return (EINVAL);
+	if (m < SERIAL_MIN_M)
+		return (EINVAL);
+
+	tras_ctx_init(ctx);
+
+	ctx->algo = &serial_algo;
+	ctx->state = TRAS_STATE_INIT;
 
 	sb = (p->m + 7) / 8;
 	sm = (1 << p->m);
@@ -82,40 +92,31 @@ serial_set_params(void *ctx, struct serial_params *p)
 	c->m1 = (unsigned int *)(c->m0 + sm);
 	c->m2 = (unsigned int *)(c->m1 + sm / 2);
 
+	c->m = p->m;
+
+	ctx->context = c;
+	ctx->params = NULL;
+
 	return (0);
 }
 
 int
-serial_update(void *ctx, void *data, unsigned int nbits)
+serial_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 {
 
+	/* todo: */
 	return (0);
 }
 
 int
-serial_test(void *ctx, void *data, unsigned int nbits)
-{
-	int error;
-
-	error = serial_update(ctx, data, nbit);
-	if (error != 0)
-		return (error);
-
-	error = serial_final(ctx);
-	if (error != 0)
-		return (error);
-
-	return (0);
-}
-
-int
-serial_final(void *ctx)
+serial_final(struct tras_ctx *ctx)
 {
 	struct serial_ctx *c;
 	unsigned int i;
 	unsigned int sv0, sv1, sv2;
 	unsigned int sm, m, n;
 	double psim0, psim1, psim2;
+	double dpsim1, dpsim2;
 	double pvalue1, pvalue2;
 
 	/*
@@ -129,12 +130,12 @@ serial_final(void *ctx)
 	psim0 = (double)sv0 / n * sm - n;
 
 	sm = sm / 2;
-	for (i = 0, sv1 = 0, i < sm; i++)
+	for (i = 0, sv1 = 0; i < sm; i++)
 		sv1 += c->m1[i] * c->m1[i];
 	psim1 = (double)sv1 / n * sm - n;
 
 	sm = sm / 2;
-	for (i = 0, sv2 = 0, i < sm; i++)
+	for (i = 0, sv2 = 0; i < sm; i++)
 		sv2 += c->m1[i] * c->m1[i];
 	psim2 = (double)sv2 / n * sm - n;
 
@@ -144,10 +145,10 @@ serial_final(void *ctx)
 	/* Calculate second test statistics square psi square for m */
 	dpsim2 = psim0 - 2 * psim1 + psim2;
 
-	/* Calculate first p-value for the first statistics */
+	/* todo: Calculate first p-value for the first statistics */
 	pvalue1 = 0.0;
 
-	/* Calculate second p-value for the second statistics */
+	/* todo: Calculate second p-value for the second statistics */
 	pvalue2 = 0.0;
 
 	/* Todo: finalize the test. */
@@ -155,3 +156,44 @@ serial_final(void *ctx)
 	return (0);
 }
 
+int
+serial_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+{
+	int error;
+
+	error = serial_update(ctx, data, bits);
+	if (error != 0)
+		return (error);
+
+	error = serial_final(ctx);
+	if (error != 0)
+		return (error);
+
+	return (0);
+}
+
+int
+serial_restart(struct tras_ctx *ctx, void *params)
+{
+
+	return (0);
+}
+
+int
+serial_free(struct tras_ctx *ctx)
+{
+
+	return (0);
+}
+
+const struct tras_algo serial_algo = {
+	.name =		"Serial",
+	.desc =		"Serial Test",
+	.version = 	{ 0, 1, 1 },
+	.init =		serial_init,
+	.update =	serial_update,
+	.test =		serial_test,
+	.final =	serial_final,
+	.restart =	serial_restart,
+	.free =		serial_free,
+};

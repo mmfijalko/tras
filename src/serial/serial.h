@@ -37,4 +37,9 @@
  * TODO: Serial Test definitions.
  */
 
+#define	SERIAL_MIN_M	3
+#define	SERIAL_MAX_M	0
+
+TRAS_DECLARE_ALGO(serial);
+
 #endif
