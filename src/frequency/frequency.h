@@ -34,9 +34,37 @@
 #define	__TRAS_FREQUENCY_H__
 
 /*
- * TODO: content, frequency test definitions.
+ * Parameter structure for the frequency test, only alpha.
  */
+struct frequency_params {
+	double	alpha;	/* significance level for H0 */
+};
+
+#define	FREQUENCY_MIN_BITS	100	/* minimum number of bits */
+#define	FREQUENCY_MAX_BITS	0	/* no maximum number of bits */
+
+/*
+ * FIPS 140-1 and 140-2 have constant bits sequence length.
+ */
+#define	FREQUENCY_FIPS_MIN_BITS	20000	/* for FIPS 140-1,2 */
+#define	FREQUENCY_FIPS_MAX_BITS	20000	/* for FIPS 140-1,2 */
+
+/*
+ * Min and max of frequency sums for FIPS 140-1.
+ */
+#define	FREQUENCY_FIPS_140_1_MIN_SUM	9654
+#define	FREQUENCY_FIPS_140_1_MAX_SUM	10346
+
+/*
+ * Min and max of frequency sums for FIPS 140-2.
+ */
+#define	FREQUENCY_FIPS_140_2_MIN_SUM	9725
+#define	FREQUENCY_FIPS_140_2_MAX_SUM	10275
 
 TRAS_DECLARE_ALGO(frequency);
+
+TRAS_DECLARE_ALGO(frequency_fips_140_1);
+
+TRAS_DECLARE_ALGO(frequency_fips_140_2);
 
 #endif
