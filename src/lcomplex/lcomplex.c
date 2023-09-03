@@ -41,8 +41,6 @@
 #include <lcomplex.h>
 
 /*
- * TODO: implementation for the Linear Complexity Test.
- *
  * TODO: Theory, Berlekamp-Massey algorithm
  */
 
@@ -53,27 +51,16 @@
  * K - the number of degrees of freedom, temporary K = 6 hardcoded.
  */
 
-struct lcomplex_state {
+struct lcomplex_ctx {
 	uint8_t	*	block;		/* storage for last, incomplete block */
 	unsigned int	nblks;		/* number of full block processed */
 	unsigned int	nbits;		/* number of bits updated */
 	unsigned int *	vfreq;		/* chi-square frequency table for T */
+	unsigned int	M;		/* the length of a block in bits */
+	unsigned int	K;		/* degrees of freedom */
+	unsigned int	u;		/* theoretical mean under H0 */
+	double		alpha;		/* significance level */
 };
-
-struct lcomplex_params {
-	unsigned int	M;		/* the length in bits of a block */
-	unsigned int	K;		/* the number of degrees of freedom */
-	double		u;		/* theoretical mean under H0 */
-};
-
-struct lcomplex_ctx {
-	struct lcomplex_state *	s;	/* the linear complex test state */
-	struct lcomplex_params *p;	/* the linear complex test params */
-};
-
-/*
- * XXX: very temporary definition for Proof of Concept.
- */
 
 /*
  * Chi-square sections probabilities for K = 6 as NIST calculated.
@@ -127,7 +114,6 @@ lcomplex_update_block(struct lcomplex_ctx *c, int offs, void *data)
 	/* TODO: single block update for linear complexity */
 }
 
-//////////////////////////////////////////////////////////////////////////
 int
 lcomplex_init(struct tras_ctx *ctx, void *params)
 {
@@ -144,14 +130,10 @@ lcomplex_init(struct tras_ctx *ctx, void *params)
 		return (EINVAL);
 	if (p->u != 0)
 		return (EINVAL);
-
-	tras_ctx_init(ctx);
-	ctx->algo = &lcomplex_algo;
-	ctx->state = TRAS_STATE_INIT;
+	if (p->alpha <= 0.0 || p->alpha >= 1.0)
+		return (EINVAL);
 
 	size = sizeof(struct lcomplex_ctx);
-	size += sizeof(struct lcomplex_state);
-	size += sizeof(struct lcomplex_params);
 	size += (p->M + 7) / 8;
 	size += (p->K + 1) * sizeof(unsigned int);
 
@@ -159,23 +141,21 @@ lcomplex_init(struct tras_ctx *ctx, void *params)
 	if (c == NULL)
 		return (ENOMEM);
 
-	c->s = (struct lcomplex_state *)(c + 1);
-	memset(c->s, 0, sizeof(struct lcomplex_state));
-
-	c->p = (struct lcomplex_params *)(c->s + 1);
-	c->p->M = p->M;
-	c->p->K = p->K;
-	c->p->u = p->M / 2.0 + (9 + ((p->M & 0x01) ? 1 : -1)) / 36.0 +
+	c->M = p->M;
+	c->K = p->K;
+	c->u = p->M / 2.0 + (9 + ((p->M & 0x01) ? 1 : -1)) / 36.0 +
 	    (p->M / 3.0 + 2.0/9.0) / pow(2.0, p->M);
+	c->alpha = p->alpha;
 
-	c->s->block = (uint8_t *)(c->p + 1);
-	memset((void *)c->s->block, 0, (p->M + 7) / 8);
+	c->block = (uint8_t *)(c + 1);
+	memset((void *)c->block, 0, (p->M + 7) / 8);
 
-	c->s->vfreq = (unsigned int *)(c->s->block + ((p->M + 7) / 8));
-	memset((void *)c->s->vfreq, 0, (p->K + 1) * sizeof(unsigned int));
+	c->vfreq = (unsigned int *)(c->block + ((p->M + 7) / 8));
+	memset((void *)c->vfreq, 0, (p->K + 1) * sizeof(unsigned int));
 
 	ctx->context = c;
-	ctx->params = c->p;
+	ctx->algo = &lcomplex_algo;
+	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -184,32 +164,28 @@ int
 lcomplex_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 {
 	struct lcomplex_ctx *c = ctx->context;
-	struct lcomplex_params *p;
-	struct lcomplex_state *s;
 	unsigned int M, n, nblk, offs, full, i;
 	
 	/*
 	 * TODO: multi-check for conditions to calculate.
 	 */
 
-	p = c->p;
-	s = c->s;
-	M = p->M;
+	M = c->M;
 
 	/* number of bits in the block buffer */
-	n = s->nbits % M;
+	n = c->nbits % M;
 
 	if ((n + bits) < M) {
 		/* Still not full block, concatenate sequence */
-		lcomplex_copy_block(s->block, n, data, 0, bits);
-		s->nbits += bits;
+		lcomplex_copy_block(c->block, n, data, 0, bits);
+		c->nbits += bits;
 		return (0);
 	}
 
 	if (n != 0) {
 		/* Some bits in the buffer and able to collect full block */
-		lcomplex_copy_block(s->block, n, data, 0, M - n);
-		lcomplex_update_block(c, 0, s->block);
+		lcomplex_copy_block(c->block, n, data, 0, M - n);
+		lcomplex_update_block(c, 0, c->block);
 		offs = M - n;
 		full = 1;
 	} else {
@@ -226,10 +202,10 @@ lcomplex_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 
 	/* Copy not processed part of sequence to the block buffer */
 	if (n != 0)
-		lcomplex_copy_block(s->block, 0, data, offs, n);
+		lcomplex_copy_block(c->block, 0, data, offs, n);
 
-	s->nblks += nblk + full;
-	s->nbits += bits;
+	c->nblks += nblk + full;
+	c->nbits += bits;
 
 	return (0);
 }
@@ -238,56 +214,62 @@ int
 lcomplex_final(struct tras_ctx *ctx)
 {
 	struct lcomplex_ctx *c = ctx->context;
-	struct lcomplex_state *s;
+	double pvalue;
+
+	if (ctx == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
+	c = ctx->context;
+
+	/* todo: here calculation of statistics */
+	pvalue = 0.0;
+
+	if (pvalue < c->alpha)
+		ctx->result.status = TRAS_TEST_FAILED;
+	else
+		ctx->result.status = TRAS_TEST_PASSED;
+
+	ctx->result.discard = 0;
+	ctx->result.pvalue1 = pvalue;
+	ctx->result.pvalue2 = 0;
+
+	ctx->state = TRAS_STATE_FINAL;
 
 	/*
 	 * XXX: condition for input length:
 	 * N = floor(n / M)
 	 */
-	s = c->s;
-
-	(void)s;
 
 	return (0);
 }
 
 int
-lcomplex_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+lcomplex_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	int error;
 
-	error = lcomplex_update(ctx, data, bits);
-	if (error != 0)
-		return (error);
-
-	error = lcomplex_final(ctx);
-	if (error != 0)
-		return (error);
-
-	return (0);
+	return (tras_do_test(ctx, data, nbits));
 }
 
 int
 lcomplex_restart(struct tras_ctx *ctx, void *params)
 {
 
-	return (0);
+	return (tras_do_restart(ctx, params));
 }
 
 int
 lcomplex_free(struct tras_ctx *ctx)
 {
-	struct lcomplex_ctx *c = ctx->context;
 
-	if (c != NULL)
-		free(c);
-
-	return (0);
+	return (tras_do_free(ctx));
 }
 
 const struct tras_algo lcomplex_algo = {
 	.name =		"Frequency Test",
 	.desc =		"Generic Frequency (Monobit) Test",
+	.id =		0,
 	.version = 	{ 0, 1, 1 },
 	.init =		lcomplex_init,
 	.update =	lcomplex_update,

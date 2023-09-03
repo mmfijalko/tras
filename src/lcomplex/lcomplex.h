@@ -34,15 +34,22 @@
 #define	__TRAS_LINEAR_COMPLEXITY_H__
 
 /*
- * TODO: definitions for the Linear Complexity Test.
+ * The parameters for the Linear Complexity Test:
+ * M - the length in bits of a block.
+ * n - the length of the bit string.
+ * K - the number of degrees of freedom, temporary K = 6 hardcoded.
+ * alpha - significance level to accept or reject H0.
  */
 
 /*
- * Parameters:
- * - M : lenght of each block in bits.
- * - K : degree of freedom, for NIST hard encoded K = 6.
+ * The parameters structure for the Linear Complexity Test.
  */
-
+struct lcomplex_params {
+	unsigned int	M;		/* the length in bits of a block */
+	unsigned int	K;		/* the number of degrees of freedom */
+	double		u;		/* theoretical mean under H0 */
+	double		alpha;		/* significance level for H0 */
+};
 
 /*
  * Input Restrictions:
