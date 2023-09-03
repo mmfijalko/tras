@@ -34,8 +34,18 @@
 #define	__TRAS_CUSUM_H__
 
 /*
- * TODO: content, cumulative sums test definitions
+ * The initial parameters for the Cumulative Sums Test.
  */
+struct cusum_params {
+	int	mode;		/* mode of operation, forward or backward */
+	double	alpha;		/* significance level */
+};
+
+#define	CUSUM_MODE_FORWARD	0	/* process sequence forward */
+#define	CUSUM_MODE_BACKWARD	1	/* process sequence backward */
+
+#define	CUSUM_MIN_BITS		100
+#define	CUSUM_MAX_BITS		0
 
 TRAS_DECLARE_ALGO(cusum);
 
