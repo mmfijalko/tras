@@ -34,11 +34,22 @@
 #define	__TRAS_SERIAL_H__
 
 /*
- * TODO: Serial Test definitions.
+ * Parameters structure for serial test.
+ */
+struct serial_params {
+	unsigned int	m;	/* length of overlapping bit block */
+	double		alpha;	/* significance level for H0 rejection */
+};
+
+/*
+ * Input size recomendation : m < floor(log2(n)) - 2. Theoretically no maximum
+ * restriction for m but prattically we cannot allocate too large frequency
+ * tables in the serial test context. Here we assume that max(m) = 24 is enough,
+ * this implies that larger frequency table is 16MB long.
  */
 
-#define	SERIAL_MIN_M	3
-#define	SERIAL_MAX_M	0
+#define	SERIAL_MIN_M	1	/* min value of the serial test block */
+#define	SERIAL_MAX_M	24	/* practical restriction block size */
 
 TRAS_DECLARE_ALGO(serial);
 
