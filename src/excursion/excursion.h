@@ -34,8 +34,14 @@
 #define	__TRAS_EXCURSION_H__
 
 /*
- * TODO: content, random walk excursion test definitions.
+ * Param structure for random walk excursion test.
  */
+struct excursion_params {
+	double	alpha;		/* only significance level */
+};
+
+#define	EXCURSION_MIN_BITS	1000000
+#define	EXCURSION_MAX_BITS	0
 
 TRAS_DECLARE_ALGO(excursion);
 
