@@ -2,7 +2,7 @@
 CFLAGS=	-g
 CFLAGS+=-I${CURDIR}
 CFLAGS+=-I${CURDIR}/../include/
-CFLAGS+=-I${CURDIR}/../
+CFLAGS+=-I${CURDIR}/../utils/
 
 all: fourier.o
 

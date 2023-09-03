@@ -33,6 +33,13 @@
 #ifndef __FOURIER_H__
 #define	__FOURIER_H__
 
+/*
+ * Parameters structure for Discrete Fourier Transform Test.
+ */
+struct serial_params {
+	double		alpha;	/* only significance level for H0 rejection */
+};
+
 #define	FOURIER_MIN_BITS	1000
 #define	FOURIER_MAX_BITS	0
 

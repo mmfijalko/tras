@@ -48,15 +48,32 @@
 #include <hamming8.h>
 #include <fourier.h>
 
+struct fourier_ctx {
+	unsigned int	nbits;	/* number of bits processed */
+	double		alpha;	/* significance level for H0 */
+};
+
 int
 fourier_init(struct tras_ctx *ctx, void *params)
 {
+	struct fourier_params *p = params;
+	struct fourier_ctx *c;
+
+	if (ctx == NULL || params == NULL)
+		return (EINVAL);
+	if (p->alpha <= 0.0 || p->alpha >= 1.0)
+		return (EINVAL);
+	if (ctx->state > TRAS_STATE_NONE)
+		return (EINPROGRESS);
 
 	if (ctx == NULL || params != NULL)
 		return (EINVAL);
 
-	tras_ctx_init(ctx);
+	c = malloc(sizeof(struct fourier_ctx));
+	if (c == NULL)
+		return (ENOMEM);
 
+	ctx->context = c;
 	ctx->algo = &fourier_algo;
 	ctx->state = TRAS_STATE_INIT;
 
@@ -66,8 +83,19 @@ fourier_init(struct tras_ctx *ctx, void *params)
 int
 fourier_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 {
+	struct fourier_ctx *c;
 
-	/* todo: */
+	if (ctx == NULL || data == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
+	c = ctx->context;
+
+	c->nbits += nbits;
+
+	/* todo: implementation */
+
 	return (0);
 }
 
@@ -75,42 +103,45 @@ int
 fourier_final(struct tras_ctx *ctx)
 {
 
+	if (ctx == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
+	c = ctx->context;
+	if (c->nbits < FOURIER_MIN_BITS)
+		return (EALREADY);
+
+	/* todo: a lot more, here just template */
+
 	return (0);
 }
 
 int
-fourier_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+fourier_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	int error;
 
-	error = fourier_update(ctx, data, bits);
-	if (error != 0)
-		return (error);
-
-	error = fourier_final(ctx);
-	if (error != 0)
-		return (error);
-
-	return (0);
+	return (tras_do_restart(ctx, data, nbits));
 }
 
 int
 fourier_restart(struct tras_ctx *ctx, void *params)
 {
 
-	return (0);
+	return (tras_do_restart(ctx, params));
 }
 
 int
 fourier_free(struct tras_ctx *ctx)
 {
 
-	return (0);
+	return (tras_do_free(ctx));
 }
 
 const struct tras_algo fourier_algo = {
 	.name =		"Fourier",
 	.desc =		"Discrete Fourier Transform (Spectral) Test",
+	.id =		0,
 	.version = 	{ 0, 1, 1 },
 	.init =		fourier_init,
 	.update =	fourier_update,
