@@ -30,27 +30,41 @@
  *
  */
 
-/*
- * TODO: implementation for Random Excursion Variant Test.
- */
-
 #include <stdint.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <stddef.h>
 
 #include <tras.h>
-#include <hamming8.h>
 #include <excursionv.h>
+
+/*
+ * Private context for random excursion variant test.
+ */
+struct excursionv_ctx {
+	double	alpha;		/* significance level */
+};
 
 int
 excursionv_init(struct tras_ctx *ctx, void *params)
 {
+	struct excursionv_ctx *c;
+	struct excursionv_params *p = params;
 
-	if (ctx == NULL || params != NULL)
+	if (ctx == NULL || params == NULL)
 		return (EINVAL);
+	if (p->alpha <= 0.0 || p->alpha >= 1.0)
+		return (EINVAL);
+	if (ctx->state > TRAS_STATE_NONE)
+		return (EINPROGRESS);
 
-	tras_ctx_init(ctx);
+	c = malloc(sizeof(struct excursionv_ctx));
+	if (c == NULL)
+		return (ENOMEM);
 
+	c->alpha = p->alpha;
+
+	ctx->context = c;
 	ctx->algo = &excursionv_algo;
 	ctx->state = TRAS_STATE_INIT;
 
@@ -68,43 +82,60 @@ excursionv_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 int
 excursionv_final(struct tras_ctx *ctx)
 {
+	struct excursionv_ctx *c;
+	double pvalue;
+
+	if (ctx == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
+	/* todo: check min bits */
+
+	c = ctx->context;
+
+	/* todo: here calculation of statistics */
+	pvalue = 0.0;
+
+	if (pvalue < c->alpha)
+		ctx->result.status = TRAS_TEST_FAILED;
+	else
+		ctx->result.status = TRAS_TEST_PASSED;
+
+	ctx->result.discard = 0;
+	ctx->result.pvalue1 = pvalue;
+	ctx->result.pvalue2 = 0;
+
+	ctx->state = TRAS_STATE_FINAL;
 
 	return (0);
 }
 
 int
-excursionv_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+excursionv_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	int error;
 
-	error = excursionv_update(ctx, data, bits);
-	if (error != 0)
-		return (error);
-
-	error = excursionv_final(ctx);
-	if (error != 0)
-		return (error);
-
-	return (0);
+	return (tras_do_test(ctx, data, nbits));
 }
 
 int
 excursionv_restart(struct tras_ctx *ctx, void *params)
 {
 
-	return (0);
+	return (tras_do_restart(ctx, params));
 }
 
 int
 excursionv_free(struct tras_ctx *ctx)
 {
 
-	return (0);
+	return (tras_do_free(ctx));
 }
 
 const struct tras_algo excursionv_algo = {
 	.name =		"ExcursionV",
 	.desc =		"Random Excursion Variant Test",
+	.id =		0,
 	.version = 	{ 0, 1, 1 },
 	.init =		excursionv_init,
 	.update =	excursionv_update,

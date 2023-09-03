@@ -34,11 +34,11 @@
 #define	__TRAS_EXCURSION_V_H__
 
 /*
- * TODO: Random Excursion Variant Test definitions.
- *
- * NOTE: non parameters test.
- *
+ * Param structure for random walk excursion variant test.
  */
+struct excursionv_params {
+	double	alpha;		/* only significance level */
+};
 
 #define	EXCURSION_V_MIN_BITS	1000000
 #define	EXCURSION_V_MAX_BITS	0
