@@ -31,37 +31,118 @@
  */
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <stddef.h>
 
 #include <tras.h>
-#include <hamming8.h>
 #include <maurer.h>
 
-/*
- * TODO: content, Maurer (Universal) test implmentation.
- *
- * TODO: Coron improvement of the Maurer test.
+static uint64_t universal_nmin[UNIVERSAL_MAX_L + 1] = {
+	0,		/* L = 0 */
+	0,		/* L = 1 */
+	0,		/* L = 2 */
+	0, 		/* L = 3 */
+	0,		/* L = 4 */
+	0,		/* L = 5 */
+	387840,		/* L = 6 */
+	904960,		/* L = 7 */
+	2068480,	/* L = 8 */
+	4654080,	/* L = 9 */
+	10342400,	/* L = 10 */
+	22753280,	/* L = 11 */
+	49643520,	/* L = 12 */
+	107560960,	/* L = 13 */
+	231669760,	/* L = 14 */
+	496435200,	/* L = 15 */
+	1059061760,	/* L = 16 */
+};
+
+struct universal_stats {
+	double		mean;
+	double		variance;
+};
+
+static const struct universal_stats universal_stats[UNIVERSAL_MAX_L + 1] = {
+	{ 0.0, 0.0 },		/* L = 0 */
+	{ 0.0, 0.0 },		/* L = 1 */
+	{ 0.0, 0.0 },		/* L = 2 */
+	{ 0.0, 0.0 },		/* L = 3 */
+	{ 0.0, 0.0 },		/* L = 4 */
+	{ 0.0, 0.0 },		/* L = 5 */
+	{ 5.2177052, 2.954 },	/* L = 6 */
+	{ 6.1962507, 3.125 },	/* L = 7 */
+	{ 7.1836656, 3.238 },	/* L = 8 */
+	{ 8.1764248, 3.311 },	/* L = 9 */
+	{ 9.1723243, 3.356 },	/* L = 10 */
+	{ 10.170032, 3.384 },	/* L = 11 */
+	{ 11.168765, 3.401 },	/* L = 12 */
+	{ 12.168070, 3.410 },	/* L = 13 */
+	{ 13.167693, 3.416 },	/* L = 14 */
+	{ 14.167488, 3.419 },	/* L = 15 */
+	{ 15.167379, 3.421 },	/* L = 16 */
+};
+
+/* 
+ * NOTE : Q shoud be selected as Q := 10 * 2 ^ L (why ?)
  */
 
 int
-maurer_init(struct tras_ctx *ctx, void *params)
+maurer_init_algo(struct tras_ctx *ctx, void *params,
+    const struct tras_algo *algo)
 {
+	struct universal_ctx *c;
+	struct universal_params *p = params;
+	size_t size;
 
 	if (ctx == NULL || params != NULL)
 		return (EINVAL);
+	if (p->alpha <= 0.0 || p->alpha >= 1.0)
+		return (EINVAL);
+	if (p->L < UNIVERSAL_MIN_L || p->L > UNIVERSAL_MAX_L)
+		return (EINVAL);
+	if (p->Q != (10 * (1UL << p->L)))
+		return (EINVAL);
+	if (ctx->state > TRAS_STATE_NONE)
+		return (EINPROGRESS);
 
-	tras_ctx_init(ctx);
+	size = sizeof(struct universal_ctx) +
+	    (1UL << p->L) * sizeof(unsigned int) + (p->Q * p->L + 7) / 8;
 
-	ctx->algo = &maurer_algo;
+	c = malloc(size);
+	if (c == NULL)
+		return (ENOMEM);
+
+	/* TODO: check parameters and allocated tables */
+
+	c->nbits = 0;
+	c->K = 0;
+	c->L = p->L;
+	c->Q = 10 * (1UL << p->L);
+	c->alpha = p->alpha;
+
+	ctx->context = c;
+	ctx->algo = algo;
 	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
 
 int
+maurer_init(struct tras_ctx *ctx, void *params)
+{
+
+	return (maurer_init_algo(ctx, params, &maurer_algo));
+}
+
+int
 maurer_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 {
+
+	if (ctx == NULL || data == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
 
 	/* todo: */
 	return (0);
@@ -70,43 +151,45 @@ maurer_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 int
 maurer_final(struct tras_ctx *ctx)
 {
+	struct maurer_ctx *c;
+
+	if (ctx == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
+	c = ctx->context;
+
+	/* todo: implementation */
 
 	return (0);
 }
 
 int
-maurer_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+maurer_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	int error;
 
-	error = maurer_update(ctx, data, bits);
-	if (error != 0)
-		return (error);
-
-	error = maurer_final(ctx);
-	if (error != 0)
-		return (error);
-
-	return (0);
+	return (tras_do_test(ctx, data, nbits));
 }
 
 int
 maurer_restart(struct tras_ctx *ctx, void *params)
 {
 
-	return (0);
+	return (tras_do_restart(ctx, params));
 }
 
 int
 maurer_free(struct tras_ctx *ctx)
 {
 
-	return (0);
+	return (tras_do_free(ctx));
 }
 
 const struct tras_algo maurer_algo = {
 	.name =		"Universal",
 	.desc =		"Maurer's Universal Statistical Test",
+	.id =		UNIVERSAL_ID_MAURER,
 	.version = 	{ 0, 1, 1 },
 	.init =		maurer_init,
 	.update =	maurer_update,
