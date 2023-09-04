@@ -34,6 +34,7 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include <tras.h>
 #include <hamming8.h>
@@ -52,17 +53,17 @@ struct frequency_ctx {
 #define	FREQUENCY_ID_FIPS_140_2		2
 
 unsigned int
-frequency_sum1(void *data, unsigned int bits)
+frequency_sum1(void *data, unsigned int nbits)
 {
 	unsigned int sum, i, n;
 	uint8_t *p;
 
-	n = bits & ~0x07;
+	n = nbits >> 3;
 	p = (uint8_t *)data;
 
 	for (i = 0, sum = 0; i < n; i++, p++)
 		sum += hamming8[*p];
-	n = bits & 0x07;
+	n = nbits & 0x07;
 	if (n > 0) 
 		sum += hamming8[*p & mmask8[n]];
 
@@ -72,7 +73,7 @@ frequency_sum1(void *data, unsigned int bits)
 #define	min(a, b) (((a) < (b)) ? (a) : (b))
 
 unsigned int
-frequency_sum2(void *data, unsigned int bits)
+frequency_sum2(void *data, unsigned int nbits)
 {
 	unsigned int sum, n;
 	uint8_t m, *p;
@@ -80,13 +81,13 @@ frequency_sum2(void *data, unsigned int bits)
 	p = (uint8_t *)data;
 	sum = 0;
 
-	while (bits > 0) {
-		n = min(bits, 8);
-		for (m = 0x80; n > 0; n--, m >>= 1) {
+	while (nbits > 0) {
+		n = min(nbits, 8);
+		for (m = 0x80; m > 0; m >>= 1) {
 			if (*p & m)
 				sum++;
 		}
-		bits -= n;
+		nbits -= n;
 		p++;
 	}
 	return (sum);
@@ -166,7 +167,7 @@ frequency_init(struct tras_ctx *ctx, void *params)
 }
 
 int
-frequency_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+frequency_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct frequency_ctx *c;
 
@@ -176,9 +177,8 @@ frequency_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 		return (ENXIO);
 
 	c = ctx->context;
-
-	c->sum += frequency_sum1(data, bits);
-	c->nbits += bits;
+	c->sum += frequency_sum1(data, nbits);
+	c->nbits += nbits;
 
 	return (0);
 }
@@ -187,7 +187,8 @@ int
 frequency_final(struct tras_ctx *ctx)
 {
 	struct frequency_ctx *c;
-	double pvalue;
+	double pvalue, sobs;
+	int sum;
 
 	if (ctx == NULL)
 		return (EINVAL);
@@ -199,8 +200,11 @@ frequency_final(struct tras_ctx *ctx)
 	if (c->nbits < FREQUENCY_MIN_BITS)
 		return (EALREADY);
 
-	/* todo: here calculation of statistics */
-	pvalue = 0.0;
+	sum = (int)(2 * c->sum) - (int)c->nbits;
+	sobs = abs((double)(sum));
+	sobs = sobs / sqrt((double)c->nbits);
+	sobs = sobs / sqrt((double)2.0);
+	pvalue = erfc(sobs);
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
