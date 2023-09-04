@@ -33,6 +33,8 @@
 #ifndef __TRAS_CORON_H__
 #define	__TRAS_CORON_H__
 
+#include <maurer.h>
+
 TRAS_DECLARE_ALGO(coron);
 
 #endif

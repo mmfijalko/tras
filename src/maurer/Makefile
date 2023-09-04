@@ -1,8 +1,9 @@
 
 CFLAGS=	-g
 CFLAGS+=-I${CURDIR}
-CFLAGS+=-I${CURDIR}/../include/
 CFLAGS+=-I${CURDIR}/../
+CFLAGS+=-I${CURDIR}/../include/
+CFLAGS+=-I${CURDIR}/../tras/
 
 all: maurer.o coron.o
 
