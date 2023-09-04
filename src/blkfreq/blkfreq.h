@@ -33,11 +33,30 @@
 #ifndef	__TRAS_BlOCK_FREQUENCY_H__
 #define	__TRAS_BLOCK_FREQUENCY_H__
 
+/*
+ * Minimum value for length of block in bits, no maximum value.
+ */
 #define	BLKFREQ_MIN_M		20
 #define	BLKFREQ_MAX_M		0
 
-#define	BLKFREQ_MIN_N		100
-#define	BLKFREQ_MAX_N		0
+/*
+ * Maximum number of bits for the test depends on m parameter.
+ */
+#define	BLKFREQ_MIN_N		100	/* global mimimum number of bits */
+#define	BLKFREQ_MAX_N		0	/* no globl maximum */
+
+#define	BLKFREQ_MIN_BLOCKS	0
+#define	BLKFREQ_MAX_BLOCKS	100
+
+/*
+ * Frequency Test within a Block Test parameters.
+ */
+struct blkfreq_params {
+	unsigned int	m;		/* the length of blocks in bits */
+	double		alpha;		/* significance level */
+};
+
+TRAS_DECLARE_ALGO(blkfreq);
 
 #endif
 

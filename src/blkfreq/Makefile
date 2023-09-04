@@ -2,7 +2,8 @@
 CFLAGS=	-g
 CFLAGS+=-I${CURDIR}
 CFLAGS+=-I${CURDIR}/../include/
-CFLAGS+=-I${CURDIR}/../
+CFLAGS+=-I${CURDIR}/../utils/
+CFLAGS+=-I${CURDIR}/../frequency/
 
 all: blkfreq.o
 
