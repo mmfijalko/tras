@@ -67,4 +67,12 @@ TRAS_DECLARE_ALGO(frequency_fips_140_1);
 
 TRAS_DECLARE_ALGO(frequency_fips_140_2);
 
+/*
+ * Frequency test functions used in other tests.
+ */
+unsigned int frequency_sum1(void *, unsigned int);
+unsigned int frequency_sum1(void *, unsigned int);
+unsigned int frequency_sum1_offs(void *, unsigned int, unsigned int);
+unsigned int frequency_sum2_offs(void *, unsigned int, unsigned int);
+
 #endif

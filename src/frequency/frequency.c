@@ -37,42 +37,21 @@
 
 #include <tras.h>
 #include <hamming8.h>
+#include <utils.h>
 #include <frequency.h>
-
-#define	DATA_BYTE(p, i)	(((uint8_t *)(p))[i])
-
-static uint8_t mmask8[9] = {
-	0x00, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, 0xff
-};
-
-static uint8_t lmask8[9] = {
-	0x00, 0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0xff
-};
-
-static uint16_t mmask16[17] = {
-	0x0000,
-	0x8000, 0xc000, 0xe000, 0xf000, 0xf800, 0xfc00, 0xfe00, 0xff00,
-	0xff80, 0xffc0, 0xffe0, 0xfff0, 0xfff8, 0xfffc, 0xfffe, 0xffff,
-};
-
-static uint16_t	lmask16[17] = {
-	0x0000,
-	0x0001, 0x0003, 0x0007, 0x000f, 0x001f, 0x003f, 0x007f, 0x00ff,
-	0x01ff, 0x03ff, 0x07ff, 0x0fff, 0x1fff, 0x3fff, 0x7fff, 0xffff,
-};
 
 struct frequency_ctx {
 	unsigned int	sum;		/* number of ones */
 	unsigned int	nbits;		/* number of bits updated */
-	unsigned int	discarded;	/* number of bits discarded */
-	double		pvalue;		/* significance level if any */
+	unsigned int	discard;	/* number of bits discarded */
+	double		alpha;		/* significance level if any */
 };
 
 #define	FREQUENCY_ID_GENERIC		0
 #define	FREQUENCY_ID_FIPS_140_1		1
 #define	FREQUENCY_ID_FIPS_140_2		2
 
-static unsigned int
+unsigned int
 frequency_sum1(void *data, unsigned int bits)
 {
 	unsigned int sum, i, n;
@@ -92,7 +71,7 @@ frequency_sum1(void *data, unsigned int bits)
 
 #define	min(a, b) (((a) < (b)) ? (a) : (b))
 
-static unsigned int
+unsigned int
 frequency_sum2(void *data, unsigned int bits)
 {
 	unsigned int sum, n;
@@ -113,19 +92,41 @@ frequency_sum2(void *data, unsigned int bits)
 	return (sum);
 }
 
-/*
- * Parameters of frequency test:
- * - number of bits, N
- * 
- * Constant value:
- * - minimum number of bits for the test, Nmin
- *
- * Test result evaluation:
- * - P-value
- */
+unsigned int
+frequency_sum1_offs(void *data, unsigned int offs, unsigned int nbits)
+{
+	unsigned int sum, n;
+	uint8_t *p, p0;
 
-int
-frequency_init_algo(struct tras_ctx *ctx, void *params, struct tras_algo *algo)
+	p = (uint8_t *)data + (offs >> 3);
+
+	if (offs & 0x07) {
+		n = 8 - (offs & 0x07);
+		if (nbits > n) {
+			sum = hamming8[*p & lmask8[n]];
+			p++;
+			sum += frequency_sum1(p, nbits - n);
+		} else {
+			p0 = *p & lmask8[n] & mmask8[8 - n + nbits];
+			sum += hamming8[p0];
+		}
+		return (sum);
+	}
+
+	return (frequency_sum1(p, nbits));
+}
+
+unsigned int
+frequency_sum2_offs(void *data, unsigned int offs, unsigned int nbits)
+{
+
+	/* todo: */
+	return (0);
+}
+
+static int
+frequency_init_algo(struct tras_ctx *ctx, void *params,
+    const struct tras_algo *algo)
 {
 	struct frequency_ctx *c;
 	struct frequency_params *p = params;
@@ -146,7 +147,7 @@ frequency_init_algo(struct tras_ctx *ctx, void *params, struct tras_algo *algo)
 	}
 
 	c->nbits = 0;
-	c->discarded = 0;
+	c->discard = 0;
 	c->alpha = p->alpha;
 	c->sum = 0;
 
@@ -161,7 +162,7 @@ int
 frequency_init(struct tras_ctx *ctx, void *params)
 {
 
-	return (frequency_init_algo(ctx, param, &frequency_algo));
+	return (frequency_init_algo(ctx, params, &frequency_algo));
 }
 
 int
@@ -206,7 +207,7 @@ frequency_final(struct tras_ctx *ctx)
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.discarded = 0;
+	ctx->result.discard = 0;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0;
 
@@ -219,7 +220,7 @@ int
 frequency_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
-	return (tras_test_test(ctx, data, nbits));
+	return (tras_do_test(ctx, data, nbits));
 }
 
 int
@@ -249,16 +250,16 @@ const struct tras_algo frequency_algo = {
 	.free =		frequency_free,
 };
 
-int
+static int
 frequency_fips_140_init_algo(struct tras_ctx *ctx, void *params,
-    struct tras_algo *algo)
+    const struct tras_algo *algo)
 {
 	struct frequency_ctx *c;
 	struct frequency_params *p = params;
 	size_t size;
 	int error;
 
-	if (ctx == NULL || param != NULL)
+	if (ctx == NULL || params != NULL)
 		return (EINVAL);
 	if (ctx->state > TRAS_STATE_NONE)
 		return (EINPROGRESS);
@@ -270,7 +271,7 @@ frequency_fips_140_init_algo(struct tras_ctx *ctx, void *params,
 	}
 
 	c->nbits = 0;
-	c->discarded = 0;
+	c->discard = 0;
 	c->alpha = 0.0;
 	c->sum = 0;
 	
@@ -281,6 +282,7 @@ frequency_fips_140_init_algo(struct tras_ctx *ctx, void *params,
 	return (0);
 }
 
+static int
 frequency_fips_140_final(struct tras_ctx *ctx, unsigned int minsum,
     unsigned int maxsum)
 {
@@ -301,12 +303,13 @@ frequency_fips_140_final(struct tras_ctx *ctx, unsigned int minsum,
 	else
 		ctx->result.status = TRAS_TEST_FAILED;
 
-	/* todo: Calculate discarded */
-	ctx->result.discarded = c->discarded;
+	/* todo: Calculate discard */
+	ctx->result.discard = c->discard;
 
 	ctx->state = TRAS_STATE_FINAL;
 
 	return (0);
+}
 
 int
 frequency_fips_140_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
@@ -319,7 +322,7 @@ int
 frequency_fips_140_1_init(struct tras_ctx *ctx, void *params)
 {
 
-	return (frequency_fips_140_init_algo(ctx, param,
+	return (frequency_fips_140_init_algo(ctx, params,
 	    &frequency_fips_140_1_algo));
 }
 
@@ -351,7 +354,7 @@ int
 frequency_fips_140_2_init(struct tras_ctx *ctx, void *params)
 {
 
-	return (frequency_fips_140_init_algo(ctx, param,
+	return (frequency_fips_140_init_algo(ctx, params,
 	    &frequency_fips_140_2_algo));
 }
 
@@ -366,7 +369,7 @@ frequency_fips_140_2_final(struct tras_ctx *ctx)
 	return (frequency_fips_140_final(ctx, minsum, maxsum));
 }
 
-const struct tras_algo frequency_fips_140_1_algo = {
+const struct tras_algo frequency_fips_140_2_algo = {
 	.name =		"140-1 Monobit",
 	.desc =		"FIPS 140-2 Frequency Test",
 	.id =		FREQUENCY_ID_FIPS_140_2,
