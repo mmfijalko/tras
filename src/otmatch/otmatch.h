@@ -34,8 +34,26 @@
 #define	__TRAS_OT_MATCH_H__
 
 /*
- * TODO: Overlapping Template Matching Test definitions.
+ * Overlapping Template Matching Test definitions params.
  */
+struct otmatch_params {
+	unsigned int	m;
+	unsigned int	M;
+	unsigned int	K;
+	double		alpha;
+};
+
+#define	OTMATCH_MIN_M	0
+#define	OTMATCH_MAX_M	0
+
+#define	OTMATCH_MIN_K	5
+#define	OTMATCH_MAX_K	5
+
+#define	OTMATCH_MIN_N	100
+#define	OTMATCH_MAX_N	0
+
+#define	OTMATCH_MIN_NBITS	1000000
+#define	OTMATCH_MAX_NBITS	0
 
 TRAS_DECLARE_ALGO(otmatch);
 
