@@ -34,9 +34,33 @@
 #define	__TRAS_MAURER_H__
 
 /*
- * TODO: content, Maurer (Universal) test definitions.
+ * The private context for Universal Statistical test (Maurer, Coron).
  */
+struct universal_ctx {
+	uint32_t	block;		/* to store not full block */
+	unsigned int	nbits;		/* number of bits processed */
+	double		alpha;		/* significance level */
+	unsigned int	L;		/* */
+	unsigned int	Q;		/* */
+	unsigned int 	K;		/* number of L-blocks processed */
+	uint8_t *	initq;		/* */
+	unsigned int *	lfreq;		/* frequency table */
+};
+
+#define	UNIVERSAL_ID_MAURER	0
+#define	UNIVERSAL_ID_CORON	1
+
+struct universal_params {
+	unsigned int		L;
+	unsigned int		Q;
+	double			alpha;
+};
+
+#define	UNIVERSAL_MIN_L		6
+#define	UNIVERSAL_MAX_L		16
 
 TRAS_DECLARE_ALGO(maurer);
+
+int maurer_init_algo(struct tras_ctx *, void *, const struct tras_algo *);
 
 #endif
