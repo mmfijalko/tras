@@ -6,13 +6,14 @@ CC := cc
 CFLAGS= -g 
 INC= -I${CURDIR}
 INC+=-I${CURDIR}/include
-INC+=-I./frequency
+INC+=-I${CURDIR}/utils
 
 SUBDIR= frequency blkfreq lcomplex approxe bmatrix cusum \
 	excursion excursionv fourier maurer ntmatch otmatch \
 	runs serial
+SUBDIR+= utils tras
 
-all: hamming8.o
+all:
 	for dir in ${SUBDIR}; do \
 		${MAKE} -C $$dir; \
 	done;

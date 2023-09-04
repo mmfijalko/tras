@@ -52,10 +52,21 @@ tras_ctx_free(struct tras_ctx *ctx)
 }
 
 int
-tras_test_init(struct tras_ctx *ctx, struct tras_algo *algo, void *params)
+tras_test_init(struct tras_ctx *ctx, const struct tras_algo *algo, size_t size)
 {
 
-	/* todo: */
+	if (ctx == NULL || algo == NULL)
+		return (EINVAL);
+	if (ctx->state > TRAS_STATE_NONE)
+		return (EBUSY);
+
+	ctx->context = malloc(algo->csize);
+	if (ctx->context == NULL)
+		return (ENOMEM);
+
+	ctx->algo = algo;
+	ctx->params = NULL;
+	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -70,19 +81,31 @@ tras_test_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 }
 
 int
-tras_test_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
+tras_verify_algo(struct tras_algo *algo)
+{
+
+	if (algo == NULL)
+		return (ENOSYS);
+	if (algo->name == NULL || algo->desc == NULL)
+		return (ENOSYS);
+	if (algo->init == NULL || algo->update == NULL || algo->final == NULL)
+		return (ENOSYS);
+
+	return (0);
+}
+
+int
+tras_do_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
 	if (ctx == NULL)
 		return (EINVAL);
-	if (ctx->state < TRAS_STATE_INIT || ctx->state > TRAS_STATE_PARAM)
+	if (ctx->state < TRAS_STATE_INIT)
 		return (ENXIO);
-
-	if (ctx->algo->update == NULL || ctx->algo->final == NULL) {
+	if (tras_verify_algo(ctx->algo) != 0) {
 		ctx->state = TRAS_STATE_ERROR;
 		return (ENOSYS);
 	}
-
 	error = ctx->algo->update(ctx, data, nbits);
 	if (error != 0)
 		return (error);
@@ -125,11 +148,47 @@ tras_test_restart(struct tras_ctx *ctx, void *params)
 	return (0);
 }
 
+/*
+ * Free test context. It calls the test free method.
+ */
 int
 tras_test_free(struct tras_ctx *ctx)
 {
 
-	/* todo: */
+	if (ctx == NULL)
+		return (EINVAL);
+	if (ctx->algo == NULL)
+		return (ENXIO);
+	if (ctx->algo->free != NULL)
+		return (ctx->algo->free(ctx));
+
+	return (0);
+}
+
+int
+tras_do_restart(struct tras_ctx *ctx, void *params)
+{
+	int error;
+
+	error = tras_do_free(ctx);
+	if (error != 0)
+		return (error);
+	return (ctx->algo->init(ctx, params));
+}
+
+int
+tras_do_free(struct tras_ctx *ctx)
+{
+
+	if (ctx == NULL)
+		return (EINVAL);
+	if (ctx->state < TRAS_STATE_INIT)
+		return (ENXIO);
+	if (ctx->context != NULL) {
+		free(ctx->context);
+		ctx->context = NULL;
+	}
+	ctx->state = TRAS_STATE_NONE;
 
 	return (0);
 }

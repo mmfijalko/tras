@@ -30,9 +30,12 @@
  *
  */
 
-#ifndef __TRAS_HAMMING8_H__
-#define	__TRAS_HAMMING8_H__
+#ifndef __TRAS_UTILS_H__
+#define	__TRAS_UTILS_H__
 
-extern const uint8_t hamming8[256];
+extern const uint8_t	mmask8[9];
+extern const uint8_t	lmask8[9];
+extern const uint16_t	mmask16[17];
+extern const uint16_t	lmass16[17];
 
 #endif
