@@ -56,7 +56,6 @@
 #include <stddef.h>
 
 #include <tras.h>
-#include <hamming8.h>
 #include <bmatrix.h>
 
 int
