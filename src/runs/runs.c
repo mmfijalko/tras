@@ -31,18 +31,20 @@
  */
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <stddef.h>
 
 #include <tras.h>
-#include <hamming8.h>
+#include <utils/hamming8.h>
 #include <runs.h>
 
 #define	abs(a)		(((a) < 0) ? -(a) : (a))
 
-/*
- * XXX: no parameter test.
- */
+struct runs_ctx {
+	unsigned int	nbits;
+	double		alpha;
+};
 
 /*
  * Slow bit per bit algorithm to calculate number of runs.
@@ -76,12 +78,27 @@ runs_runs_count2(void *data, unsigned int bits)
 int
 runs_init(struct tras_ctx *ctx, void *params)
 {
+	struct runs_ctx *c;
+	struct runs_params *p = params;
+	size_t size;
 
 	if (ctx == NULL || params != NULL)
 		return (EINVAL);
+	if (p->alpha <= 0.0 || p->alpha >= 1.0)
+		return (EINVAL);
+	if (ctx->state > TRAS_STATE_NONE)
+		return (EINPROGRESS);
 
-	tras_ctx_init(ctx);
+	c = malloc(sizeof(struct runs_ctx));
+	if (c == NULL)
+		return (ENOMEM);
 
+	/* TODO: check parameters and allocated tables */
+
+	c->nbits = 0;
+	c->alpha = p->alpha;
+
+	ctx->context = c;
 	ctx->algo = &runs_algo;
 	ctx->state = TRAS_STATE_INIT;
 
@@ -92,6 +109,11 @@ int
 runs_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 {
 
+	if (ctx == NULL || data == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
 	/* todo: */
 	return (0);
 }
@@ -99,48 +121,50 @@ runs_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 int
 runs_final(struct tras_ctx *ctx)
 {
+	struct runs_ctx *c;
+
+	if (ctx == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
+	c = ctx->context;
+
+	/* todo: implementation */
 
 	return (0);
 }
 
 int
-runs_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+runs_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	int error;
 
-	error = runs_update(ctx, data, bits);
-	if (error != 0)
-		return (error);
-
-	error = runs_final(ctx);
-	if (error != 0)
-		return (error);
-
-	return (0);
+	return (tras_do_test(ctx, data, nbits));
 }
 
 int
 runs_restart(struct tras_ctx *ctx, void *params)
 {
 
-	return (0);
+	return (tras_do_restart(ctx, params));
 }
 
 int
 runs_free(struct tras_ctx *ctx)
 {
 
-	return (0);
+	return (tras_do_free(ctx));
 }
 
 const struct tras_algo runs_algo = {
 	.name =		"Runs",
 	.desc =		"Runs Test",
+	.id =		0,
 	.version = 	{ 0, 1, 1 },
 	.init =		runs_init,
 	.update =	runs_update,
-	.test =		runs_test,
+	.test =		tras_do_test,
 	.final =	runs_final,
-	.restart =	runs_restart,
-	.free =		runs_free,
+	.restart =	tras_do_restart,
+	.free =		tras_do_free,
 };

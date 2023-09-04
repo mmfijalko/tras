@@ -34,6 +34,14 @@
 #define	__RUNS_H__
 
 /*
+ * Parameters for the Runs Test.
+ */
+struct runs_params {
+	int	flags;	/* init flags */
+	double	alpha;	/* significance level */
+};
+
+/*
  * Minimum number of bits for the runs test.
  */
 #define	RUNS_MIN_BITS	100
