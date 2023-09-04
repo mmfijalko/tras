@@ -34,8 +34,19 @@
 #define	__TRAS_NT_MATCH_H__
 
 /*
- * TODO: Non-overlapping Template Matching Test definitions.
+ * Non-overlapping Template Matching Test definitions params.
  */
+struct ntmatch_params {
+	unsigned int	m;
+	unsigned int	M;
+	double		alpha;
+};
+
+#define	NTMATCH_MIN_M	0
+#define	NTMATCH_MAX_M	0
+
+#define	NTMATCH_MIN_N	100
+#define	NTMATCH_MAX_N	0
 
 TRAS_DECLARE_ALGO(ntmatch);
 

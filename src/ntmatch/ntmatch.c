@@ -31,26 +31,50 @@
  */
 
 /*
- * TODO: implementation for the Non-overlapping Template Matching Test.
+ * Implementation of the Non-overlapping Template Matching Test.
  */
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <stddef.h>
 
 #include <tras.h>
-#include <hamming8.h>
+#include <utils/hamming8.h>
 #include <ntmatch.h>
+
+/*
+ * Private context for the test.
+ */
+struct ntmatch_ctx {
+	unsigned int	nbits;
+	double		alpha;
+};
 
 int
 ntmatch_init(struct tras_ctx *ctx, void *params)
 {
+	struct ntmatch_ctx *c;
+	struct ntmatch_params *p = params;
+	size_t size;
 
 	if (ctx == NULL || params != NULL)
 		return (EINVAL);
+	if (p->alpha <= 0.0 || p->alpha >= 1.0)
+		return (EINVAL);
+	if (ctx->state > TRAS_STATE_NONE)
+		return (EINPROGRESS);
 
-	tras_ctx_init(ctx);
+	c = malloc(sizeof(struct ntmatch_ctx));
+	if (c == NULL)
+		return (ENOMEM);
 
+	/* TODO: check parameters and allocated tables */
+
+	c->nbits = 0;
+	c->alpha = p->alpha;
+
+	ctx->context = c;
 	ctx->algo = &ntmatch_algo;
 	ctx->state = TRAS_STATE_INIT;
 
@@ -61,6 +85,11 @@ int
 ntmatch_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 {
 
+	if (ctx == NULL || data == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
 	/* todo: */
 	return (0);
 }
@@ -68,48 +97,50 @@ ntmatch_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 int
 ntmatch_final(struct tras_ctx *ctx)
 {
+	struct ntmatch_ctx *c;
+
+	if (ctx == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
+	c = ctx->context;
+
+	/* todo: implementation */
 
 	return (0);
 }
 
 int
-ntmatch_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+ntmatch_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	int error;
 
-	error = ntmatch_update(ctx, data, bits);
-	if (error != 0)
-		return (error);
-
-	error = ntmatch_final(ctx);
-	if (error != 0)
-		return (error);
-
-	return (0);
+	return (tras_do_test(ctx, data, nbits));
 }
 
 int
 ntmatch_restart(struct tras_ctx *ctx, void *params)
 {
 
-	return (0);
+	return (tras_do_restart(ctx, params));
 }
 
 int
 ntmatch_free(struct tras_ctx *ctx)
 {
 
-	return (0);
+	return (tras_do_free(ctx));
 }
 
 const struct tras_algo ntmatch_algo = {
 	.name =		"ntmatch",
 	.desc =		"Non-Overlapping Template Matching Test",
+	.id =		0,
 	.version = 	{ 0, 1, 1 },
 	.init =		ntmatch_init,
 	.update =	ntmatch_update,
-	.test =		ntmatch_test,
+	.test =		tras_do_test,
 	.final =	ntmatch_final,
-	.restart =	ntmatch_restart,
-	.free =		ntmatch_free,
+	.restart =	tras_do_restart,
+	.free =		tras_do_free,
 };
