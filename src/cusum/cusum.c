@@ -30,10 +30,6 @@
  *
  */
 
-/*
- * TODO: content, cumulative sums test implementation.
- */
-
 #include <stdint.h>
 #include <errno.h>
 #include <stddef.h>
