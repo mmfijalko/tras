@@ -30,18 +30,20 @@
  *
  */
 
-#include "tras.h"
+#include <stdint.h>
+#include <errno.h>
+#include <stddef.h>
+#include <stdlib.h>
+
+#include <tras.h>
 
 void
 tras_ctx_init(struct tras_ctx *ctx)
 {
 
-	ctx->tc_state = TRAS_STATE_NONE;
+	ctx->state = TRAS_STATE_NONE;
 	ctx->context = NULL;
-	ctx->params = NULL;
 	ctx->algo = NULL;
-
-	return (0);
 }
 
 void
@@ -60,12 +62,11 @@ tras_test_init(struct tras_ctx *ctx, const struct tras_algo *algo, size_t size)
 	if (ctx->state > TRAS_STATE_NONE)
 		return (EBUSY);
 
-	ctx->context = malloc(algo->csize);
+	ctx->context = malloc(size);
 	if (ctx->context == NULL)
 		return (ENOMEM);
 
 	ctx->algo = algo;
-	ctx->params = NULL;
 	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
@@ -81,7 +82,7 @@ tras_test_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 }
 
 int
-tras_verify_algo(struct tras_algo *algo)
+tras_verify_algo(const struct tras_algo *algo)
 {
 
 	if (algo == NULL)
@@ -97,6 +98,7 @@ tras_verify_algo(struct tras_algo *algo)
 int
 tras_do_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
+	int error;
 
 	if (ctx == NULL)
 		return (EINVAL);
@@ -121,6 +123,7 @@ tras_do_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 int
 tras_test_final(struct tras_ctx *ctx)
 {
+	int error;
 
 	if (ctx == NULL)
 		return (EINVAL);
