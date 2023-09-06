@@ -40,13 +40,14 @@
 
 #include <tras.h>
 #include <utils.h>
-#include <frequency.h>
+#include <blkfreq.h>
 
 #include <sys/random.h>
 
 int main(void)
 {
-	struct frequency_params params = {
+	struct blkfreq_params params = {
+		.m = 21,
 		.alpha = 0.01,
 	};
 	struct tras_ctx ctx;
@@ -57,53 +58,50 @@ int main(void)
 
 	getrandom(buffer, sizeof(buffer), 0);
 
-	error = frequency_init(&ctx, &params);
+	error = blkfreq_init(&ctx, &params);
 	if (error != 0) {
-		printf("test: failed to init frequency test\n");
+		printf("test: failed to init blkfreq test\n");
 		return (error);
 	}
 
 	for (j = 0; ; j++) {
 		nrd = read(STDIN_FILENO, buffer, sizeof(buffer));
 		if (nrd < 0) {
-			error = errno;
-			break;
+			return (errno);
 		}
 		if (nrd == 0) {
-			error = 0;
-			break;
+			return (0);
 		}
 		if (nrd != sizeof(buffer)) {
-			error = ENXIO;
-			break;
+			return (ENXIO);
 		}
 
-	error = frequency_update(&ctx, buffer, 8 * sizeof(buffer));
+	error = blkfreq_update(&ctx, buffer, 8 * sizeof(buffer));
 	if (error != 0) {
-		printf("test: failed to update frequency test\n");
-		frequency_free(&ctx);
+		printf("test: failed to update blkfreq test\n");
+		blkfreq_free(&ctx);
 		return (error);
 	}
 
-	error = frequency_final(&ctx);
+	error = blkfreq_final(&ctx);
 	if (error != 0) {
-		printf("test: failed to finalize the frequency test\n");
-		frequency_free(&ctx);
+		printf("test: failed to finalize the blkfreq test\n");
+		blkfreq_free(&ctx);
 		return (error);
 	}
 
 //	printf("pvalue = %g\n", ctx.result.pvalue1);
 
-	error = frequency_restart(&ctx, &params);
+	error = blkfreq_restart(&ctx, &params);
 	if (error != 0) {
-		printf("test: failed to restart frequency test\n");
+		printf("test: failed to restart blkfreq test\n");
 		break;
 	}
 	}
 
-	error = frequency_free(&ctx);
+	error = blkfreq_free(&ctx);
 	if (error != 0) {
-		printf("test: failed to free frequency context (%d)\n", error);
+		printf("test: failed to free blkfreq context (%d)\n", error);
 		return (error);
 	}
 

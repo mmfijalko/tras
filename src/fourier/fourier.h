@@ -40,7 +40,11 @@ struct serial_params {
 	double		alpha;	/* only significance level for H0 rejection */
 };
 
+/*
+ * Mimimum and maximum number of bits for the test.
+ */
 #define	FOURIER_MIN_BITS	1000
+
 #define	FOURIER_MAX_BITS	0
 
 TRAS_DECLARE_ALGO(fourier);

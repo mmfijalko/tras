@@ -78,10 +78,11 @@ blkfreq_init(struct tras_ctx *ctx, void *params)
 	if (p->m < BLKFREQ_MIN_M)
 		return (EINVAL);
 
-	c = malloc(sizeof(struct blkfreq_ctx) + (p->m + 7) / 8);
+	c = malloc(sizeof(struct blkfreq_ctx));
 	if (c == NULL)
 		return (ENOMEM);
 
+	c->sum = 0;
 	c->nbits = 0;
 	c->nblks = 0;
 	c->stats = 0.0;
@@ -113,8 +114,8 @@ blkfreq_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 
 	c->nbits += nbits;
 
-	if (c->nblks >= (BLKFREQ_MAX_BLOCKS - 1))
-		return (0);
+//	if (c->nblks >= (BLKFREQ_MAX_BLOCKS - 1))
+//		return (0);
 
 	n = n % c->m;
 	if (n > 0) {
@@ -131,12 +132,11 @@ blkfreq_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	}
 
 	nb = n / c->m;
-
 	for (i = 0; i < nb; i++) {
-		if (c->nblks >= (BLKFREQ_MAX_BLOCKS - 1))
-			return (0);
+//		if (c->nblks >= (BLKFREQ_MAX_BLOCKS - 1))
+//			return (0);
 		c->sum = frequency_sum1_offs(data, offs, c->m);
-		pii = c->sum / c->m - 0.5;
+		pii = (double)c->sum / c->m - 0.5;
 		c->stats += pii * pii;
 		offs += c->m;
 		c->nblks++;

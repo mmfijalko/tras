@@ -37,16 +37,24 @@
  * Non-overlapping Template Matching Test definitions params.
  */
 struct ntmatch_params {
-	unsigned int	m;
-	unsigned int	M;
+	unsigned int	m;	/* length in bits of each template */
+	unsigned int	M;	/* length of subsequenc to be tested */
+	unsigned int	N;	/* number of independent blocks */
 	double		alpha;
 };
 
-#define	NTMATCH_MIN_M	0
-#define	NTMATCH_MAX_M	0
+/*
+ * XXX: Conditions for parameters are complicated; here only definitions
+ * with wrong values for compiler to be happy.
+ */
 
-#define	NTMATCH_MIN_N	100
-#define	NTMATCH_MAX_N	0
+#define	NTMATCH_MIN_M	0		/* XXX: ? */
+#define	NTMATCH_MAX_M	0		/* XXX: ? */
+
+#define	NTMATCH_MIN_N	100		/* XXX: ? */
+#define	NTMATCH_MAX_N	0		/* XXX: ? */
+
+#define	NTMATCH_MIN_SUBS_M	100	/* XXX: not valid */
 
 TRAS_DECLARE_ALGO(ntmatch);
 

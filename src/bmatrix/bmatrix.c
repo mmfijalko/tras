@@ -54,19 +54,49 @@
 #include <stdint.h>
 #include <errno.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 #include <tras.h>
 #include <bmatrix.h>
 
+struct bmatrix_ctx {
+	unsigned int	nbits;	/* number of bits processed */
+	unsigned int	nmatx;	/* number of matrices processed */
+	unsigned int	fm0;	/* number of full rank matrices */
+	unsigned int	fm1;	/* number of full rank-1 matrices */
+	unsigned int	m;	/* number of rows in matrix */
+	unsigned int	q;	/* number of columns in matrix */
+	unsigned int	mq;	/* number of bits per matrix */
+	double		alpha;	/* significance level for H0 */
+};
+
 int
 bmatrix_init(struct tras_ctx *ctx, void *params)
 {
+	struct bmatrix_ctx *c;
+	struct bmatrix_params *p = params;
 
-	if (ctx == NULL || params != NULL)
+	if (ctx == NULL || params == NULL)
 		return (EINVAL);
 
-	tras_ctx_init(ctx);
+	c = malloc(sizeof(struct bmatrix_ctx));
+	if (c == NULL)
+		return (ENOMEM);
+	if (p->m < BMATRIX_MIN_M || p->q < BMATRIX_MIN_Q)
+		return (EINVAL);
+	if (p->m > BMATRIX_MAX_M || p->q > BMATRIX_MAX_Q)
+		return (EINVAL);
 
+	c->nbits = 0;
+	c->nmatx = 0;
+	c->fm0 = 0;
+	c->fm1 = 0;
+	c->alpha = p->alpha;
+	c->m = p->m;
+	c->q = p->q;
+	c->mq = c->m * c->q;
+
+	ctx->context = c;
 	ctx->algo = &bmatrix_algo;
 	ctx->state = TRAS_STATE_INIT;
 
@@ -77,6 +107,11 @@ int
 bmatrix_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 {
 
+	if (ctx == NULL || data == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
 	/* todo: */
 	return (0);
 }
@@ -84,43 +119,75 @@ bmatrix_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 int
 bmatrix_final(struct tras_ctx *ctx)
 {
+	struct bmatrix_ctx *c;
+	unsigned int n;
+	double diffn, expt0, expt1, exptn;
+	double fmn, chi2, pvalue;
+
+	if (ctx == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
+	c = ctx->context;
+
+	if (c->nmatx < BMATRIX_MIN_MATRICES)
+		return (EALREADY);
+
+	/* Calculate chi-square distribution statistics */
+	n = c->nmatx;
+
+	expt0 = 0.2888 * c->nmatx;
+	expt1 = 0.5776 * c->nmatx;
+	exptn = 0.1336 * c->nmatx;
+	diffn = (double)(n - c->fm0 + c->fm1);
+
+	chi2 = (c->fm0 - expt0) * (c->fm0 - expt0) / expt0 +
+	    (c->fm1 - expt1) * (c->fm1 - expt1) / expt1 +
+	    (diffn - exptn) * (diffn - exptn) / exptn;
+
+	/* todo: here calculation of statistics */
+	pvalue = 0.0;
+
+	if (pvalue < c->alpha)
+		ctx->result.status = TRAS_TEST_FAILED;
+	else
+		ctx->result.status = TRAS_TEST_PASSED;
+
+	ctx->result.discard = c->nbits % c->mq;
+	ctx->result.pvalue1 = pvalue;
+	ctx->result.pvalue2 = 0;
+
+	ctx->state = TRAS_STATE_FINAL;
 
 	return (0);
 }
 
 int
-bmatrix_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+bmatrix_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	int error;
 
-	error = bmatrix_update(ctx, data, bits);
-	if (error != 0)
-		return (error);
-
-	error = bmatrix_final(ctx);
-	if (error != 0)
-		return (error);
-
-	return (0);
+	return (tras_do_test(ctx, data, nbits));
 }
 
 int
 bmatrix_restart(struct tras_ctx *ctx, void *params)
 {
 
-	return (0);
+	return (tras_do_restart(ctx, params));
 }
 
 int
 bmatrix_free(struct tras_ctx *ctx)
 {
 
-	return (0);
+	return (tras_do_free(ctx));
 }
 
 const struct tras_algo bmatrix_algo = {
 	.name =		"BMatrix",
 	.desc =		"Binary Matrix Rank Test",
+	.id =		0,
 	.version = 	{ 0, 1, 1 },
 	.init =		bmatrix_init,
 	.update =	bmatrix_update,

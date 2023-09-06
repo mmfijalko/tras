@@ -73,6 +73,9 @@ fourier_init(struct tras_ctx *ctx, void *params)
 	if (c == NULL)
 		return (ENOMEM);
 
+	c->nbits = 0;
+	c->alpha = p->alpha;
+
 	ctx->context = c;
 	ctx->algo = &fourier_algo;
 	ctx->state = TRAS_STATE_INIT;
@@ -81,7 +84,7 @@ fourier_init(struct tras_ctx *ctx, void *params)
 }
 
 int
-fourier_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+fourier_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct fourier_ctx *c;
 
@@ -102,6 +105,9 @@ fourier_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 int
 fourier_final(struct tras_ctx *ctx)
 {
+	struct fourier_ctx *c;
+	unsigned int n;
+	double t, n0, n1, d;
 
 	if (ctx == NULL)
 		return (EINVAL);
@@ -112,7 +118,30 @@ fourier_final(struct tras_ctx *ctx)
 	if (c->nbits < FOURIER_MIN_BITS)
 		return (EALREADY);
 
-	/* todo: a lot more, here just template */
+	/* todo: apply DFT to the sequence of bits; S=DFT(X) */
+
+	/* todo: calculate modulus M = modulus(S') = |S'|
+	 * S' is a substring of first n/2 elements in S */
+
+	/* todo: compute T = sqrt(log(1/0.05) *n) */
+
+	n = c->nbits;
+	t = sqrt(log(1.0/0.05) * (double)n);
+	d = (n1 - n0) / sqrt(0.95 * (double)n * 0.5 / 4);
+
+	n0 = 0.95 * (double)n / 2.0;
+	/* todo: compute n1 - number of peaks in M less than T */
+
+	pvalue = erfc(abs(d) / sqrt((double)2.0));
+
+	if (pvalue < c->alpha)
+		ctx->result.status = TRAS_TEST_FAILED;
+	else
+		ctx->result.status = TRAS_TEST_PASSED;
+
+	ctx->result.discard = 0;
+	ctx->result.pvalue1 = pvalue;
+	ctx->result.pvalue2 = 0.0;
 
 	return (0);
 }
@@ -121,7 +150,7 @@ int
 fourier_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
-	return (tras_do_restart(ctx, data, nbits));
+	return (tras_do_test(ctx, data, nbits));
 }
 
 int

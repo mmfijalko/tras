@@ -48,6 +48,10 @@
  */
 struct ntmatch_ctx {
 	unsigned int	nbits;
+	unsigned int *	w;	/* templates frequency table */
+	unsigned int	m;
+	unsigned int	M;
+	unsigned int 	N;
 	double		alpha;
 };
 
@@ -56,7 +60,7 @@ ntmatch_init(struct tras_ctx *ctx, void *params)
 {
 	struct ntmatch_ctx *c;
 	struct ntmatch_params *p = params;
-	size_t size;
+	unsigned int i;
 
 	if (ctx == NULL || params != NULL)
 		return (EINVAL);
@@ -64,14 +68,26 @@ ntmatch_init(struct tras_ctx *ctx, void *params)
 		return (EINVAL);
 	if (ctx->state > TRAS_STATE_NONE)
 		return (EINPROGRESS);
+	if (p->m < NTMATCH_MIN_M)
+		return (EINVAL);
+	if (p->M < NTMATCH_MIN_SUBS_M)
+		return (EINVAL);
+	if (p->N < NTMATCH_MIN_N || p->N > NTMATCH_MAX_N)
+		return (EINVAL);
 
-	c = malloc(sizeof(struct ntmatch_ctx));
+	c = malloc(sizeof(struct ntmatch_ctx) + p->N * sizeof(unsigned int));
 	if (c == NULL)
 		return (ENOMEM);
 
-	/* TODO: check parameters and allocated tables */
+	/* Initialize templates frequency table */
+	c->w = (unsigned int *)(c + 1);
+	for (i = 0; i < p->N; i++)
+		c->w[i] = 0;
 
 	c->nbits = 0;
+	c->m = p->m;
+	c->M = p->M;
+	c->N = p->N;
 	c->alpha = p->alpha;
 
 	ctx->context = c;
@@ -98,6 +114,9 @@ int
 ntmatch_final(struct tras_ctx *ctx)
 {
 	struct ntmatch_ctx *c;
+	double mean, var;
+	double chi2, pvalue;
+	unsigned int i;
 
 	if (ctx == NULL)
 		return (EINVAL);
@@ -105,6 +124,36 @@ ntmatch_final(struct tras_ctx *ctx)
 		return (ENXIO);
 
 	c = ctx->context;
+
+#ifdef __not_yet__
+	mean = (double)c->M - (double)c->m + 1.0;
+	var = (double)c->M;
+	i = c->m;
+	while (i > 0) {
+		k = min(i, 16);
+		mean = mean / (double)(1UL << k);
+		i = i - k;
+	}
+#endif
+
+	for (chi2 = 0.0, i = 0; i < c->N; i++)
+		chi2 += ((double)c->w[i] - mean) * ((double)c->w[i] - mean);
+	chi2 = chi2 / var;
+
+#ifdef __not_yet__
+
+	pvalue = igamc((double)c->N / 2.0, chi2 / 2.0);
+#else
+	pvalue = 0.0;
+#endif
+	if (pvalue < c->alpha)
+		ctx->result.status = TRAS_TEST_FAILED;
+	else
+		ctx->result.status = TRAS_TEST_PASSED;
+
+	ctx->result.discard = c->nbits % c->M;
+	ctx->result.pvalue1 = pvalue;
+	ctx->result.pvalue2 = 0.0;
 
 	/* todo: implementation */
 

@@ -5,10 +5,21 @@ CFLAGS+=-I${CURDIR}/../include/
 CFLAGS+=-I${CURDIR}/../utils/
 CFLAGS+=-I${CURDIR}/../frequency/
 
-all: blkfreq.o
+VPATH+=${CURDIR}/../utils/
+VPATH+=${CURDIR}/../tras/
+VPATH+=${CURDIR}/../frequency/
+
+LDFLAGS=-lm
+
+all: test
+
+test: frequency.o blkfreq.o test.o hamming8.o utils.o tras.o
+	${CC} $^ ${LDFLAGS} -o test
+
 
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@
 
 clean:
 	rm -rf *.o
+	rm -f test
