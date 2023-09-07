@@ -47,8 +47,14 @@
  * Private context for the test.
  */
 struct otmatch_ctx {
-	unsigned int	nbits;
-	double		alpha;
+	unsigned int	nbits;		/* number of bits processed */
+	unsigned int	m;
+	uint8_t	*	B;
+	unsigned int	K;
+	unsigned int	M;
+	unsigned int	N;
+	unsigned int	v[5];
+	double		alpha;		/* significance level fo H0 */
 };
 
 int
@@ -65,12 +71,20 @@ otmatch_init(struct tras_ctx *ctx, void *params)
 	if (ctx->state > TRAS_STATE_NONE)
 		return (EINPROGRESS);
 
-	c = malloc(sizeof(struct otmatch_ctx));
+	/* todo: verify multiple parameters */
+
+	c = malloc(sizeof(struct otmatch_ctx) + (p->m + 7) / 8);
 	if (c == NULL)
 		return (ENOMEM);
 
-	/* TODO: check parameters and allocated tables */
+	c->B = (uint8_t *)(c + 1);
+	memcpy(p->B, c->B, (p->m + 7) / 8);
 
+	memset(c->v, 0, sizeof(c->v));
+	c->m = p->m;
+	c->K = p->K;
+	c->M = p->M;
+	c->N = p->N;
 	c->nbits = 0;
 	c->alpha = p->alpha;
 
@@ -82,22 +96,41 @@ otmatch_init(struct tras_ctx *ctx, void *params)
 }
 
 int
-otmatch_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+otmatch_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
+	struct otmatch_ctx *c;
 
 	if (ctx == NULL || data == NULL)
 		return (EINVAL);
 	if (ctx->state != TRAS_STATE_INIT)
 		return (ENXIO);
 
+	c = ctx->context;
+
+	c->nbits += nbits;
+
 	/* todo: */
 	return (0);
 }
+
+/*
+ * Constant precomputed values of Pi(i) for chi-square 0..5.
+ */
+static const pi[6] = {
+	0.364091,	/* Pi#0 */
+	0.185659,	/* Pi#1 */
+	0.139381,	/* Pi#2 */
+	0.100571,	/* Pi#3 */
+	0.070432,	/* Pi#4 */
+	0.139865,	/* Pi#4 */
+};
 
 int
 otmatch_final(struct tras_ctx *ctx)
 {
 	struct otmatch_ctx *c;
+	double lambda, ni;
+	double pvalue;
 
 	if (ctx == NULL)
 		return (EINVAL);
@@ -106,7 +139,20 @@ otmatch_final(struct tras_ctx *ctx)
 
 	c = ctx->context;
 
+	lambda = ((double)(c->M - c->m + 1)) / pow(2.0, (double)c->m);
+	ni = lambda / 2.0;
+
 	/* todo: implementation */
+	pvalue = 0.0;
+
+	if (pvalue < c->alpha)
+		ctx->result.status = TRAS_TEST_FAILED;
+	else
+		ctx->result.status = TRAS_TEST_PASSED;
+
+	ctx->result.discard = c->nbits % c->N;
+	ctx->result.pvalue1 = pvalue;
+	ctx->result.pvalue2 = 0.0;
 
 	return (0);
 }

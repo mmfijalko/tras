@@ -30,36 +30,8 @@
  *
  */
 
-#ifndef __TRAS_OT_MATCH_H__
-#define	__TRAS_OT_MATCH_H__
-
-/*
- * Overlapping Template Matching Test definitions params.
- */
-struct otmatch_params {
-	unsigned int	m;
-	const uint8_t *	B;
-	unsigned int	K;
-	unsigned int	M;
-	unsigned int	N;
-	double		alpha;
-};
-
-#define	OTMATCH_MIN_TMPL_M	0
-#define	OTMATCH_MAX_TMPL_M	0
-
-#define	OTMATCH_MIN_K		5
-#define	OTMATCH_MAX_K		5
-
-#define	OTMATCH_MIN_SUBS_M	0
-#define	OTMATCH_MAX_SUBS_M	0
-
-#define	OTMATCH_MIN_N		100
-#define	OTMATCH_MAX_N		0
-
-#define	OTMATCH_MIN_NBITS	1000000
-#define	OTMATCH_MAX_NBITS	0
-
-TRAS_DECLARE_ALGO(otmatch);
+#ifndef	__BITS_H__
+#define	__BITS_H__
 
 #endif
+
