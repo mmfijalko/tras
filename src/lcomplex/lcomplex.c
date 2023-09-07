@@ -161,7 +161,7 @@ lcomplex_init(struct tras_ctx *ctx, void *params)
 }
 
 int
-lcomplex_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+lcomplex_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct lcomplex_ctx *c = ctx->context;
 	unsigned int M, n, nblk, offs, full, i;
@@ -175,9 +175,9 @@ lcomplex_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 	/* number of bits in the block buffer */
 	n = c->nbits % M;
 
-	if ((n + bits) < M) {
+	if ((n + nbits) < M) {
 		/* Still not full block, concatenate sequence */
-		lcomplex_copy_block(c->block, n, data, 0, bits);
+		lcomplex_copy_block(c->block, n, data, 0, nbits);
 		c->nbits += bits;
 		return (0);
 	}
@@ -193,8 +193,8 @@ lcomplex_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 		offs = 0;
 		full = 0;
 	}
-	nblk = (bits - offs) / M;
-	n = (bits - offs) % M;
+	nblk = (nbits - offs) / M;
+	n = (nbits - offs) % M;
 
 	/* Process linear complexity for full blocks of data */
 	for (i = 0; i < nblk; i++, offs += M)
@@ -205,7 +205,7 @@ lcomplex_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 		lcomplex_copy_block(c->block, 0, data, offs, n);
 
 	c->nblks += nblk + full;
-	c->nbits += bits;
+	c->nbits += nbits;
 
 	return (0);
 }
