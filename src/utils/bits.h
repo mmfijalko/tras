@@ -33,5 +33,29 @@
 #ifndef	__BITS_H__
 #define	__BITS_H__
 
+static inline uint16_t
+bitcount_16(uint16_t x)
+{
+
+	x = ((x & 0xaaaa) >> 1) + (x & 0x5555);
+	x = ((x & 0xcccc) >> 2) + (x & 0x3333);
+	x = (x + (x >> 4)) & 0x0f0f;
+	x = (x + (x >> 8)) & 0x00ff;
+
+	return (x);
+}
+
+static inline uint32_t
+bitcount_32(uint32_t x)
+{
+	x = ((x & 0xaaaaaaaa) >> 1) + (x & 0x55555555);
+	x = ((x & 0xcccccccc) >> 2) + (x & 0x33333333);
+	x = (x + (x >> 4)) & 0x0f0f0f0f;
+	x = (x + (x >> 8));
+	x = (x + (x >> 16)) & 0x000000ff;
+
+	return (x);
+}
+
 #endif
 
