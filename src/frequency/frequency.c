@@ -39,6 +39,7 @@
 #include <tras.h>
 #include <hamming8.h>
 #include <utils.h>
+#include <bits.h>
 #include <frequency.h>
 
 struct frequency_ctx {
@@ -90,6 +91,29 @@ frequency_sum2(void *data, unsigned int nbits)
 		nbits -= n;
 		p++;
 	}
+	return (sum);
+}
+
+/*
+ * XXX: invalid result for this function !!!!
+ */
+unsigned int
+frequency_sum3(void *data, unsigned int nbits)
+{
+	unsigned int sum, i, n;
+	uint32_t *p;
+	uint8_t *p8;
+
+	n = nbits >> 5;
+	p = (uint32_t *)data;
+
+	for (i = 0, sum = 0; i < n; i++, p++)
+		sum += bitcount_32(*p);
+	for (p8 = (uint8_t *)p; n >= 8; n -= 8)
+		sum += hamming8[*p8];
+	if (n > 0)
+		sum += hamming8[*p8 & mmask8[n]];
+
 	return (sum);
 }
 

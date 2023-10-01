@@ -92,7 +92,8 @@ int main(void)
 		return (error);
 	}
 
-//	printf("pvalue = %g\n", ctx.result.pvalue1);
+	printf("pvalue = %g, test result = %s\n", ctx.result.pvalue1,
+		(ctx.result.status == TRAS_TEST_PASSED) ? "success" : "failed");
 
 	error = frequency_restart(&ctx, &params);
 	if (error != 0) {
