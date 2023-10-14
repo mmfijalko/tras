@@ -28,7 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * The Count-the-1's Test (Stream of Bits)
+ * todo:
  */
 
 #include <stdint.h>
@@ -97,9 +97,11 @@ craps_init(struct tras_ctx *ctx, void *params)
 	c->nbits = 0;
 	for (i = 0; i < 21; i++)
 		c->freq[i] = 0;
+	c->K = p->K;
 	c->thrs = 0;
 	c->wins = 0;
 	c->next = 0;
+	c->toss = 0;
 	c->games = 0;
 	c->alpha = p->alpha;
 
@@ -110,14 +112,41 @@ craps_init(struct tras_ctx *ctx, void *params)
 	return (0);
 }
 
+#define	offs_to32(s, o)	(((uint32_t *)(s))[(o) >> 5])
+
+#define	seq_get32(s, o)	((offs_to32(s, o) << ((o) & 0x1f)) |	\
+	(((o) & 0x1f) ? offs_to32(s, (o) + 32) >> (32 - ((o) & 0x1f)) : 0))
+
+static unsigned int
+craps_toss(void *data, unsigned int offs)
+{
+	unsigned int dice;
+	uint32_t die1, die2;
+	double u01;
+
+	if (offs & 0x1f) {
+		die1 = seq_get32(data, offs);
+		die2 = seq_get32(data, offs + 32);
+	} else {
+		die1 = offs_to32(data, offs);
+		die2 = offs_to32(data, offs + 32);
+	}
+
+	u01 = craps_uniform01(die1);
+	dice = (unsigned int)(u01 * 6);
+	u01 = craps_uniform01(die2);
+	dice += (unsigned int)(u01 * 6);
+
+	return (dice);
+}
+
 int
 craps_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct craps_ctx *c;
-	unsigned int r, i, n;
+	unsigned int thrs, dice, next, toss;
+	unsigned int r, i, n, offs;
 	double u01;
-	unsigned int toss, thrs, dice;
-	uint32_t *p32;
 
 	if (ctx == NULL || data == NULL)
 		return (EINVAL);
@@ -138,37 +167,38 @@ craps_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 		return (ENOSYS);
 	}
 
-	p32 = (uint32_t *)data;
-	thrs = c->thrs;
 	n = nbits >> 6;
-	for (i = 0; i < n; i++) {
-		u01 = craps_uniform01(p32[i / 2]);
-		dice = (unsigned int)(u01 * 6);
-		u01 = craps_uniform01(p32[i / 2 + 1]);
-		dice += (unsigned int)(u01 * 6);
-		if (c->next) {
-			toss = c->toss;
+	thrs = c->thrs;
+	next = c->next;
+	toss = c->toss;
+	for (i = 0, offs = 0; i < n; i++, offs += 64) {
+		if (c->games >= c->K)
+			break;
+		dice = craps_toss(data, offs);
+		if (next) {
 			thrs = (thrs < 20) ? ++thrs : 20;
-			if (dice == 5 || (dice == toss)) {
-				c->next = 0;
-				c->freq[thrs]++;
-				c->games++;
-				thrs = 0;
-				if (dice == toss)
-					c->wins++;
-			}
-		} else if (dice == 7 || dice == 9) {
+			if (dice != 5 && (dice != toss))
+				continue;
 			c->freq[thrs]++;
-			c->next = 0;
+			if (dice == toss)
+				c->wins++;
+		} else if (dice == 5 || dice == 9) {
+			c->freq[0]++;
 			c->wins++;
 		} else if (dice == 0 || dice == 1 || dice == 10) {
-			c->freq[thrs]++;
-			c->next = 0;
+			c->freq[0]++;
 		} else {
-			c->next = 1;
-			c->toss = dice;
+			next = 1;
+			toss = dice;
+			continue;
 		}
+		next = 0;
+		thrs = 0;
+		c->games++;
 	}
+	c->thrs = thrs;
+	c->next = next;
+	c->toss = toss;
 
 	c->nbits += nbits;
 
@@ -179,9 +209,9 @@ int
 craps_final(struct tras_ctx *ctx)
 {
 	struct craps_ctx *c;
-	double pvalue, sobs;
+	double pvalue1, pvalue2, sobs;
 	double mean, var, p;
-	int sum;
+	int i, sum;
 
 	if (ctx == NULL)
 		return (EINVAL);
@@ -198,7 +228,8 @@ craps_final(struct tras_ctx *ctx)
 	mean = p * c->K;
 	var = p * (1.0 - p) * c->K;
 
-	pvalue = 0.0;
+	pvalue1 = 0.0;
+	pvalue2 = 0.0;
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
@@ -206,8 +237,8 @@ craps_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = c->nbits & 0x07;
-	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
+	ctx->result.pvalue1 = pvalue1;
+	ctx->result.pvalue2 = pvalue2;
 
 	ctx->state = TRAS_STATE_FINAL;
 
