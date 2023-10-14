@@ -33,6 +33,10 @@
 #include <stdint.h>
 #include <errno.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <endian.h>
+#include <math.h>
 
 #include <tras.h>
 #include <hamming8.h>
@@ -129,7 +133,7 @@ cusum_init(struct tras_ctx *ctx, void *params)
 		return (EINVAL);
 	if (p->alpha <= 0.0 || p->alpha >= 1.0)
 		return (EINVAL);
-	if (p->mode != CUSUM_MODE_FORWARED && p->mode != CUSUM_MODE_BACKWARD)
+	if (p->mode != CUSUM_MODE_FORWARD && p->mode != CUSUM_MODE_BACKWARD)
 		return (EINVAL);
 	if (ctx->state > TRAS_STATE_NONE)
 		return (EINPROGRESS);
@@ -200,18 +204,21 @@ cusum_update_backward(struct cusum_ctx *c, void *data, unsigned int nbits)
 int
 cusum_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
+	struct cusum_ctx *c;
 
 	if (ctx == NULL || data == NULL)
 		return (EINVAL);
 	if (ctx->state != TRAS_STATE_INIT)
 		return (ENXIO);
 
+	c = ctx->context;
+
 	switch (c->mode) {
 	case CUSUM_MODE_FORWARD:
-		cusum_update_foward(ctx->context, data, nbits);
+		cusum_update_forward(c, data, nbits);
 		break;
 	case CUSUM_MODE_BACKWARD:
-		cusum_update_backward(ctx->context, data, nbits);
+		cusum_update_backward(c, data, nbits);
 		return (ENOSYS);
 	}
 
