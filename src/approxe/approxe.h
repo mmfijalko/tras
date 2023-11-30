@@ -33,5 +33,18 @@
 #ifndef __APPROXE_H__
 #define	__APPROXE_H__
 
+struct approxe_params {
+	unsigned int	m;	/* the length of each block */
+	double 		alpha	/* significance lelel for H0 */
+};
+
+/* Restrictions for block length, practical for memory size */
+#define	APPROXE_MIN_M		2
+#define	APPROXE_MAX_M		16
+
+/* Restrictions for number of bits, m < floor(log2(n)) - 5 */
+#define	APPROXE_MIN_BITS
+#define	APPROXE_MAX_BITS
+
 #endif
 
