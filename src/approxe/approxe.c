@@ -37,57 +37,127 @@
 #include <tras.h>
 #include <approxe.h>
 
+struct approxe_ctx {
+	unsigned int 	nbits;	/* number of bits processed */
+	uint8_t	*	first;	/* first m-1 appended bits */
+	unsigned int *	freq0;	/* block value frequencies for m */
+	unsigned int *	freq1;	/* block value frequencies for m + 1 */
+	unsigned int	m;	/* bits for each block */
+	double		alpha;	/* significance level for H0 */
+};
+
 int
 approxe_init(struct tras_ctx *ctx, void *params)
 {
+	struct approxe_ctx *c;
+	struct approxe_params *p = params;
+	unsigned int n;
 
-	/* todo: */
+	if (ctx == NULL || params == NULL) {
+		return (EINVAL);
+	if (p->alpha <= 0.0 || p->alpha >= 1.0)
+		return (EINVAL);
+	if (p->m < APPROXE_MIN_M || p->m > APPROXE_MAX_M)
+		return (EINVAL);
+	if (ctx->state > TRAS_STATE_NONE)
+		return (EINPROGRESS);
+
+	n = (unsigned int)(pow(2.0, p->m));
+
+	c = malloc(sizeof(struct approxe_ctx) + (p->m - 1 + 7) / 8 +
+	   (n + 2 * n) * sizeof(unsigned int));
+	if (c == NULL) {
+		ctx->state = TRAS_STATE_NONE;
+		return (ENOMEM);
+	}
+	c->freq0 = (unsigned int *)(c + 1);
+	c->freq1 = (unsigned int *)(c->freq0 + n);
+	c->first = (uint8_t *)(c->freq1 + n * 2);
+
+	for (i = 0; i < n; i++)
+		c->freq0[i] = 0;
+	for (i = 0; i < 2 * n; i++)
+		c->freq1[i] = 0;
+
+	c->nbits = 0;
+	c->m = p->m;
+	c->alpha = p->alpha;
+
+	ctx->context = c;
+	ctx->algo = &approxe_algo;
+	ctx->state = TRAS_STATE_INIT;
+
 	return (0);
 }
 
 int
 approxe_update(struct tras_ctx *ctx, void *data, unsigned int bits)
 {
+	struct approxe_ctx *c;
 
-	/* todo: */
-	return (0);
+	if (ctx == NULL || data == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
+	c = ctx->context;
+
+	/* todo */
+
+	return (ENOSYS);
 }
 
 int
 approxe_final(struct tras_ctx *ctx)
 {
+	struct approxe_ctx *c;
+	double pvalue, phim0, phim1;
+	unsigned int i, n, *freq;
 
+	n = (unsigned int)(pow(2.0, c->m));
+
+	freq = malloc(2 * sizeof(double) * n);
+	if (freq == NULL)
+		return (ENOMEM);
+
+	/* Calculate relative frequencies for m */ 
+	for (i = 0; i < n; i++) {
+		freq[i] = ((double)c->freqm0[i]) / n;
+	}
+	/* Calculate phi value for m */
+	for (i = 0, phim0 = 0.0; i < n; i++) {
+		phim0 += freq[i] * log(freq[i]);
+	}
+	/* Calculate relative frequencies for m + 1 */
+	for (i = 0, n = n * 2, phim1 = 0.0; i < n; i++) {
+		freq[i] = ((double)c->freqm1[i]) / n;
+	}
+	/* Calculate phi value for m + 1 */
+	for (i = 0, phim1 = 0.0; i < n; i++) {
+		phim1 += freq[i] * log(freq[i]);
+	}
 	return (0);
 }
 
 int
 approxe_test(struct tras_ctx *ctx, void *data, unsigned int bits)
 {
-	int error;
 
-	error = approxe_update(ctx, data, bits);
-	if (error != 0)
-		return (error);
-
-	error = approxe_final(ctx);
-	if (error != 0)
-		return (error);
-
-	return (0);
+	return (tras_do_test(ctx, data, nbits));
 }
 
 int
 approxe_restart(struct tras_ctx *ctx, void *params)
 {
 
-	return (0);
+	return (tras_do_restart(ctx, params));
 }
 
 int
 approxe_free(struct tras_ctx *ctx)
 {
 
-	return (0);
+	return (tras_do_free(ctx));
 }
 
 const struct tras_algo approxe_algo = {
