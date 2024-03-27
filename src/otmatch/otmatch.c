@@ -37,7 +37,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <string.h>
 #include <stddef.h>
+#include <math.h>
 
 #include <tras.h>
 #include <hamming8.h>
@@ -56,6 +58,8 @@ struct otmatch_ctx {
 	unsigned int	v[5];
 	double		alpha;		/* significance level fo H0 */
 };
+
+#define	__DECONST(type, var)	((type)(uintptr_t)(const void *)(var))
 
 int
 otmatch_init(struct tras_ctx *ctx, void *params)
@@ -77,8 +81,8 @@ otmatch_init(struct tras_ctx *ctx, void *params)
 	if (c == NULL)
 		return (ENOMEM);
 
-	c->B = (uint8_t *)(c + 1);
-	memcpy(p->B, c->B, (p->m + 7) / 8);
+	c->B = __DECONST(uint8_t *, (c + 1));
+	memcpy(c->B, p->B, (p->m + 7) / 8);
 
 	memset(c->v, 0, sizeof(c->v));
 	c->m = p->m;
@@ -116,7 +120,7 @@ otmatch_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 /*
  * Constant precomputed values of Pi(i) for chi-square 0..5.
  */
-static const pi[6] = {
+static const double pi[6] = {
 	0.364091,	/* Pi#0 */
 	0.185659,	/* Pi#1 */
 	0.139381,	/* Pi#2 */
@@ -185,8 +189,8 @@ const struct tras_algo otmatch_algo = {
 	.version = 	{ 0, 1, 1 },
 	.init =		otmatch_init,
 	.update =	otmatch_update,
-	.test =		tras_do_test,
+	.test =		otmatch_test,
 	.final =	otmatch_final,
-	.restart =	tras_do_restart,
-	.free =		tras_do_free,
+	.restart =	otmatch_restart,
+	.free =		otmatch_free,
 };
