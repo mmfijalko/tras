@@ -225,12 +225,21 @@ cusum_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (0);
 }
 
+#define	SQRT_2	1.414213562373095048801688724209698078569672
+
+/*
+ * Standard normal cumulative probability distribution function.
+ */
+#define	stdnorm_cpdf(x)	\
+	((1.0 + erf((double)(x) / SQRT_2)) / 2.0)
+
 int
 cusum_final(struct tras_ctx *ctx)
 {
 	struct cusum_ctx *c;
-	unsigned int z, k0, kn;
-	double pvalue;
+	unsigned int z;
+	double pvalue, sum, sqrtn;
+	int first, last, k;
 
 	if (ctx == NULL)
 		return (EINVAL);
@@ -247,8 +256,25 @@ cusum_final(struct tras_ctx *ctx)
 	else
 		z = (unsigned int)c->maxs;
 
-	/* todo: here calculation of statistics */
-	pvalue = 0.0;
+	n = (int)c->nbits;
+
+	sqrtn = sqrt(n);
+
+	first = (-n / z + 1) / 4;
+	last = (n / z - 1) / 4;
+	for (k = first, sum = 0.0; k <= last; k++) {
+		sum += stdnorm_cpdf((double)(4 * k + 1) * z / sqrtn);
+		sum -= stdnorm_cpdf((double)(4 * k - 1) * z / sqrtn);
+	}
+
+	first = (-n / z - 3) / 4;
+	last = (n / z - 1) / 4;
+	for (k = first; k <= last; k++) {
+		sum += stdnorm_cpdf((double)(4 * k + 3) * z / sqrtn);
+		sum -= stdnorm_cpdf((double)(4 * k + 1) * z / sqrtn);
+	}
+
+	pvalue = 1.0 - sum;
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;

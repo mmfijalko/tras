@@ -44,8 +44,8 @@ struct cusum_params {
 #define	CUSUM_MODE_FORWARD	0	/* process sequence forward */
 #define	CUSUM_MODE_BACKWARD	1	/* process sequence backward */
 
-#define	CUSUM_MIN_BITS		100
-#define	CUSUM_MAX_BITS		0
+#define	CUSUM_MIN_BITS		100	/* minimum number of bits to finalize */
+#define	CUSUM_MAX_BITS		0	/* no maximum number of bits */
 
 TRAS_DECLARE_ALGO(cusum);
 
