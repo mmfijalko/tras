@@ -28,7 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * The Parking Lot Test.
+ * The 3D spheres test.
  */
 
 #include <stdint.h>
@@ -60,7 +60,7 @@ struct point {
 };
 
 /*
- * The context structure for the parking lot test.
+ * The context structure for the 3D spheres test.
  */
 struct sphere3d_ctx {
 	unsigned int	nbits;	/* number of bits processed */
@@ -72,7 +72,7 @@ struct sphere3d_ctx {
 };
 
 /*
- * Initialize the parking lot test, non-parameters test.
+ * Initialize the 3D spheres test.
  */
 int
 sphere3d_init(struct tras_ctx *ctx, void *params)
@@ -177,7 +177,7 @@ sphere3d_point_component(uint32_t u32)
 }
 
 /*
- * Update state of the parking lot test with subsequent binary sequence.
+ * Update state of the 3D spheres test with subsequent binary sequence.
  */
 int
 sphere3d_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
@@ -193,6 +193,8 @@ sphere3d_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 		return (ENXIO);
 	if (nbits == 0 || (nbits & 0x1f))
 		return (EINVAL);
+
+	/* TODO: no check for number of points processed */
 
 	c = ctx->context;
 
@@ -216,7 +218,7 @@ sphere3d_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 }
 
 /*
- * Finalize the parking lot test and determine its result.
+ * Finalize the 3D sphereds test and determine its result.
  */
 int
 sphere3d_final(struct tras_ctx *ctx)
@@ -262,7 +264,7 @@ sphere3d_final(struct tras_ctx *ctx)
 }
 
 /*
- * The parking lot test for update and finalize in one call.
+ * The 3D spheres test for update and finalize in one call.
  */
 int
 sphere3d_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
@@ -272,7 +274,7 @@ sphere3d_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 }
 
 /*
- * Restart the initialized parking lot test.
+ * Restart the initialized 3D spheres test.
  */
 int
 sphere3d_restart(struct tras_ctx *ctx, void *params)
@@ -282,7 +284,7 @@ sphere3d_restart(struct tras_ctx *ctx, void *params)
 }
 
 /*
- * Uninitialize the parking lot test and free its allocated resources.
+ * Uninitialize the 3D spheres test and free its allocated resources.
  */
 int
 sphere3d_free(struct tras_ctx *ctx)
@@ -292,7 +294,7 @@ sphere3d_free(struct tras_ctx *ctx)
 }
 
 /*
- * The parking lot test algorithm description for tras software.
+ * The 3D spheres test algorithm description for tras software.
  */
 const struct tras_algo sphere3d_algo = {
 	.name =		"sphere3d",
