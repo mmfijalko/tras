@@ -178,7 +178,7 @@ lcomplex_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	if ((n + nbits) < M) {
 		/* Still not full block, concatenate sequence */
 		lcomplex_copy_block(c->block, n, data, 0, nbits);
-		c->nbits += bits;
+		c->nbits += nbits;
 		return (0);
 	}
 
