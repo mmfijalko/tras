@@ -36,7 +36,7 @@
 /*
  * Parameters structure for Discrete Fourier Transform Test.
  */
-struct serial_params {
+struct fourier_params {
 	double		alpha;	/* only significance level for H0 rejection */
 };
 

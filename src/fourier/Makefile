@@ -4,7 +4,10 @@ CFLAGS+=-I${CURDIR}
 CFLAGS+=-I${CURDIR}/../include/
 CFLAGS+=-I${CURDIR}/../utils/
 
-all: fourier.o
+VPATH+=${CURDIR}/../utils/
+VPATH+=${CURDIR}/../tras/
+
+all: fourier.o tras.o utils.o
 
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@

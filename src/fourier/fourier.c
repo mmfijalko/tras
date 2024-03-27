@@ -43,6 +43,10 @@
 #include <stdint.h>
 #include <errno.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <endian.h>
+#include <math.h>
 
 #include <tras.h>
 #include <hamming8.h>
@@ -108,6 +112,7 @@ fourier_final(struct tras_ctx *ctx)
 	struct fourier_ctx *c;
 	unsigned int n;
 	double t, n0, n1, d;
+	double pvalue;
 
 	if (ctx == NULL)
 		return (EINVAL);
