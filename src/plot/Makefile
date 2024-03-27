@@ -22,3 +22,4 @@ test: plot.o test.o utils.o tras.o frequency.o hamming8.o
 
 clean:
 	rm -rf *.o
+	rm -rf test

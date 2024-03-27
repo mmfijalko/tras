@@ -1,4 +1,4 @@
-	/*-
+/*-
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Copyright (c) 2023 Marek Marcin Fijałkowski
@@ -64,6 +64,7 @@ struct plot_ctx {
 	unsigned int	nslot;	/* size of table for cars */
 	unsigned int	bumps;	/* number of collisions */
 	uint8_t		buf[8];	/* to store incomplete point */
+	int		idist;	/* distance function index */
 	double		alpha;	/* significance level ??? */
 };
 
@@ -98,7 +99,7 @@ plot_init(struct tras_ctx *ctx, void *params)
 	c = malloc(sizeof(struct plot_ctx));
 	if (c == NULL)
 		return (ENOMEM);
-	c->cars = malloc(100 * PARKING_LOT_MAX_CARS / 2 * sizeof(struct point));
+	c->cars = malloc(PARKING_LOT_MAX_CARS / 2 * sizeof(struct point));
 	if (c->cars == NULL) {
 		free(c);
 		return (ENOMEM);
@@ -107,6 +108,7 @@ plot_init(struct tras_ctx *ctx, void *params)
 	c->ncars = 0;
 	c->tries = 0;
 	c->nslot = 100 * PARKING_LOT_MAX_CARS / 2;
+	c->idist = p->idist;
 	c->alpha = p->alpha;
 
 	ctx->context = c;
@@ -289,6 +291,9 @@ return (EINVAL);
 	return (0);
 }
 
+#define	PLOT_12000_MEAN		3523.0
+#define	PLOT_12000_VAR		21.9
+
 /*
  * Finalize the parking lot test and determine its result.
  */
@@ -296,8 +301,7 @@ int
 plot_final(struct tras_ctx *ctx)
 {
 	struct plot_ctx *c;
-	double mean, var, s;
-	double pvalue;
+	double s, pvalue;
 
 	if (ctx == NULL)
 		return (EINVAL);
@@ -309,10 +313,7 @@ plot_final(struct tras_ctx *ctx)
 	if (c->tries < PARKING_LOT_MIN_CARS)
 		return (EALREADY);
 
-	mean = 3523.0;
-	var = 21.9;
-
-	s = ((double)c->ncars - mean) / var;
+	s = ((double)c->ncars - PLOT_12000_MEAN) / PLOT_12000_VAR;
 	s = s / sqrt((double)2.0);
 	pvalue =  erfc(fabs(s));
 
