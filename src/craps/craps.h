@@ -35,8 +35,11 @@
 
 struct craps_params {
 	unsigned int	K;	/* number of games */
-	double		alpha;	/* significance level for H0 */
+	double		alpha1;	/* alpha for 1st level test */
+	double		alpha2;	/* alpha for 2nd level test */
 };
+
+#define	CRAPS_MIN_GAMES		/* minum number of games for final */
 
 TRAS_DECLARE_ALGO(craps);
 

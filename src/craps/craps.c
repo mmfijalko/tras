@@ -28,7 +28,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * todo:
  */
 
 #include <stdint.h>
@@ -56,6 +55,8 @@ struct craps_ctx {
 	unsigned int 	games;	/* number of games */
 	int		next;	/* game not finished */
 	unsigned int	toss;	/* last toss dice sum */
+	double		alpha1;	/* 1st level test alpha */
+	double		alpha2	/* 2nd level test alpha */
 };
 
 /*
@@ -83,7 +84,9 @@ craps_init(struct tras_ctx *ctx, void *params)
 
 	if (ctx == NULL || params == NULL)
 		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
+	if (p->alpha1 <= 0.0 || p->alpha1 >= 1.0)
+		return (EINVAL);
+	if (p->alpha2 <= 0.0 || p->alpha2 >= 1.0)
 		return (EINVAL);
 	if (ctx->state > TRAS_STATE_NONE)
 		return (EINPROGRESS);
@@ -103,7 +106,8 @@ craps_init(struct tras_ctx *ctx, void *params)
 	c->next = 0;
 	c->toss = 0;
 	c->games = 0;
-	c->alpha = p->alpha;
+	c->alpha1 = p->alpha1;
+	c->alpha2 = p->alpha2;
 
 	ctx->context = c;
 	ctx->algo = &craps_algo;
@@ -210,7 +214,7 @@ craps_final(struct tras_ctx *ctx)
 {
 	struct craps_ctx *c;
 	double pvalue1, pvalue2, sobs;
-	double mean, var, p;
+	double mean, var, p, s;
 	int i, sum;
 
 	if (ctx == NULL)
@@ -220,18 +224,21 @@ craps_final(struct tras_ctx *ctx)
 
 	c = ctx->context;
 
-	(void)c;
-
-	/* todo: implementation */
+	if (c->games < CRAPS_MIN_GAMES)
+		return (EALREADY);
 
 	p = 244.0 / 495.0;
 	mean = p * c->K;
 	var = p * (1.0 - p) * c->K;
 
-	pvalue1 = 0.0;
-	pvalue2 = 0.0;
+	s = ((double)c->wins - mean) / var;
+	s = fabs(s / sqrt(double)2.0);
+	pvalue1 = erfc(s);
 
-	if (pvalue < c->alpha)
+/* xxx: temporary 2nd level success */
+pvalue2 = 1.0;
+
+	if (pvalue1 < c->alpha1 || pvalue2 < c->alpha2)
 		ctx->result.status = TRAS_TEST_FAILED;
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
