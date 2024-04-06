@@ -8,6 +8,7 @@ CFLAGS+=-I${CURDIR}/../mindist/
 CFLAGS+=-I${CURDIR}/../plot/
 CFLAGS+=-I${CURDIR}/../squeeze/
 CFLAGS+=-I${CURDIR}/../approxe/
+CFLAGS+=-I${CURDIR}/../dna/
 
 VPATH+=${CURDIR}/../utils/
 VPATH+=${CURDIR}/../tras/
@@ -17,13 +18,14 @@ VPATH+=${CURDIR}/../mindist/
 VPATH+=${CURDIR}/../plot
 VPATH+=${CURDIR}/../squeeze/
 VPATH+=${CURDIR}/../approxe/
+VPATH+=${CURDIR}/../dna/
 
 LDFLAGS=-lm
 
 all: test
 
 test: test.o frequency.o hamming8.o utils.o tras.o sphere3d.o mindist.o plot.o \
-    squeeze.o approxe.o
+    squeeze.o approxe.o dna.o
 	${CC} $^ ${LDFLAGS} -o test
 
 %.o: %.c

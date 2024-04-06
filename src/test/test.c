@@ -76,6 +76,10 @@ struct squeeze_params squeeze_params = {
 	.alpha = 0.05,
 };
 
+struct dna_params dna_params = {
+	.alpha = 0.01,
+};
+
 static const struct test_algo algo_list[] = {
 	{ "frequency", &frequency_algo, &frequency_params, 0 },
 	{ "sphere3d", &sphere3d_algo, &sphere3d_params, 0 },
@@ -103,7 +107,7 @@ static const struct test_algo algo_list[] = {
 	{ "bspace", NULL, NULL },
 	{ "c1tsbits", NULL, NULL },
 	{ "craps", NULL, NULL },
-	{ "dna", NULL, NULL },
+	{ "dna", &dna_algo, &dna_params },
 	{ "excursionv", NULL, NULL },
 	{ "kstest", NULL, NULL },
 	{ "mindist", &mindist_algo, &mindist_params },
