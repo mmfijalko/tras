@@ -1,4 +1,5 @@
 /*-
+ *
  * SPDX-License-Identifier: BSD-3-Clause
  *
  * Copyright (c) 2023 Marek Marcin Fijałkowski
@@ -28,13 +29,14 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * The Minimum Distance Test.
+ * The DNA Test.
  */
 
 #include <stdint.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 #include <tras.h>
@@ -44,18 +46,28 @@
 #include <dna.h>
 
 /*
- * todo:
+ * The DNA test context
  */
 struct dna_ctx {
 	unsigned int	nbits;	/* number of bits processed */
 	double		alpha;	/* significance level for H0 */
+	uint32_t *	wmap;	/* bits map for DNA words */
+	unsigned int	letters;/* letters in context */
+	uint32_t	word;	/* last 3 words collected */
+	unsigned int	sparse;	/* number of missing words */
 };
+
+/* todo: temporary min definition here.
+ */
+
+#define	min(a, b)	(((a) < (b)) ? (a) : (b))
 
 int
 dna_init(struct tras_ctx *ctx, void *params)
 {
 	struct dna_ctx *c;
 	struct dna_params *p = params;
+	int size;
 
 	if (ctx == NULL || params == NULL)
 		return (EINVAL);
@@ -64,16 +76,20 @@ dna_init(struct tras_ctx *ctx, void *params)
 	if (ctx->state > TRAS_STATE_NONE)
 		return (EINPROGRESS);
 
-	c = malloc(sizeof(struct dna_ctx));
+	size = sizeof(struct dna_ctx) + DNA_WORDS / 8;
+
+	c = malloc(size);
 	if (c == NULL) {
 		ctx->state = TRAS_STATE_NONE;
 		return (ENOMEM);
 	}
-
-	/* todo: other initializations when defined */
+	c->wmap = (uint32_t *)(c + 1);
+	memset(c->wmap, 0, DNA_WORDS / 8);
 
 	c->nbits = 0;
-
+	c->alpha = p->alpha;
+	c->letters = 0;
+	c->sparse = DNA_WORDS;
 	ctx->context = c;
 	ctx->algo = &dna_algo;
 	ctx->state = TRAS_STATE_INIT;
@@ -84,19 +100,51 @@ dna_init(struct tras_ctx *ctx, void *params)
 int
 dna_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	struct dna_ctx *c;
+	struct dna_ctx *c = ctx->context;
+	uint32_t *strokes, word;
+	unsigned int n, i, k;
 
 	if (ctx == NULL || data == NULL)
 		return (EINVAL);
 	if (ctx->state != TRAS_STATE_INIT)
 		return (ENXIO);
+	if (nbits & 0x1f)
+		return (EINVAL);
+	if (nbits == 0)
+		return (0);
 
-	c = ctx->context;
+	strokes = (uint32_t *)data;
+	n = nbits / 32;
 
-	(void)c;
+	k = min(c->letters, 10);
+	k = min(n, 10 - k);
 
-	/* todo: implementation */
+	for (i = 0; i < k; i++) {
+		c->word = (c->word << 2) & ~DNA_L_MASK;
+		c->word |= (strokes[i] & DNA_LETTER_MASK) &
+		    DNA_WORD_MASK;
+	}
+	c->letters += k;
+	if (c->letters < 10) {
+		c->nbits += nbits;
+		return (0);
+	}
 
+	n = n - k;
+	n = min(DNA_LETTERS, n);
+
+	strokes += k;
+	word = c->word;
+	for (i = 0; i < n; i++) {
+		word = ((word << 2) | strokes[i] & DNA_LETTER_MASK) &
+		    DNA_WORD_MASK;
+		if ((c->wmap[word >> 5] & (1 << (word & 0x1f))) == 0) {
+			c->wmap[word >> 5] |= (1 << (word & 0x1f));
+			c->sparse--;
+		}
+	}
+	c->word = word;
+	c->letters += n;
 	c->nbits += nbits;
 
 	return (0);
@@ -106,28 +154,26 @@ int
 dna_final(struct tras_ctx *ctx)
 {
 	struct dna_ctx *c;
-	double pvalue, sobs;
-	int sum;
+	double pvalue, s;
 
 	if (ctx == NULL)
 		return (EINVAL);
 	if (ctx->state != TRAS_STATE_INIT)
 		return (ENXIO);
-
 	c = ctx->context;
+	if (c->nbits < DNA_MIN_BITS)
+		return (EALREADY);
 
-	(void)c;
-
-	/* todo: implementation */
-
-	pvalue = 0.0;
+	s = (double)c->sparse - 141910.4026047629;
+	s = fabs(s) / 337.0 / sqrt((double)2.0);
+	pvalue = erfc(fabs(s));
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.discard = c->nbits & 0x07;
+	ctx->result.discard = c->nbits - DNA_BITS;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0;
 
