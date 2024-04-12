@@ -33,6 +33,8 @@
 #include <stdint.h>
 #include <errno.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <math.h>
 
 #include <tras.h>
 #include <approxe.h>
@@ -51,9 +53,9 @@ approxe_init(struct tras_ctx *ctx, void *params)
 {
 	struct approxe_ctx *c;
 	struct approxe_params *p = params;
-	unsigned int n;
+	unsigned int n, i;
 
-	if (ctx == NULL || params == NULL) {
+	if (ctx == NULL || params == NULL)
 		return (EINVAL);
 	if (p->alpha <= 0.0 || p->alpha >= 1.0)
 		return (EINVAL);
@@ -122,7 +124,7 @@ approxe_final(struct tras_ctx *ctx)
 
 	/* Calculate relative frequencies for m */ 
 	for (i = 0; i < n; i++) {
-		freq[i] = ((double)c->freqm0[i]) / n;
+		freq[i] = ((double)c->freq0[i]) / n;
 	}
 	/* Calculate phi value for m */
 	for (i = 0, phim0 = 0.0; i < n; i++) {
@@ -130,7 +132,7 @@ approxe_final(struct tras_ctx *ctx)
 	}
 	/* Calculate relative frequencies for m + 1 */
 	for (i = 0, n = n * 2, phim1 = 0.0; i < n; i++) {
-		freq[i] = ((double)c->freqm1[i]) / n;
+		freq[i] = ((double)c->freq1[i]) / n;
 	}
 	/* Calculate phi value for m + 1 */
 	for (i = 0, phim1 = 0.0; i < n; i++) {
@@ -140,7 +142,7 @@ approxe_final(struct tras_ctx *ctx)
 }
 
 int
-approxe_test(struct tras_ctx *ctx, void *data, unsigned int bits)
+approxe_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
 	return (tras_do_test(ctx, data, nbits));

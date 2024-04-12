@@ -35,7 +35,7 @@
 
 struct approxe_params {
 	unsigned int	m;	/* the length of each block */
-	double 		alpha	/* significance lelel for H0 */
+	double 		alpha;	/* significance lelel for H0 */
 };
 
 /* Restrictions for block length, practical for memory size */
@@ -45,6 +45,8 @@ struct approxe_params {
 /* Restrictions for number of bits, m < floor(log2(n)) - 5 */
 #define	APPROXE_MIN_BITS
 #define	APPROXE_MAX_BITS
+
+TRAS_DECLARE_ALGO(approxe);
 
 #endif
 
