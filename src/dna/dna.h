@@ -37,10 +37,10 @@ struct dna_params {
 	double	alpha;	/* significance level for H0 */
 };
 
-/* The number of possible 10 DNA letters words possible, 2 ^ 20 */
+/* The number of possible 10 DNA letters words, 2 ^ 20 */
 #define	DNA_WORDS		1048576	
 
-/* The length of the DNA word */
+/* The length of the DNA word, number of letters */
 #define	DNA_WORDLEN		10
 
 /* Total number of keystrokes to finalize the test, 2^21 + 9 */
@@ -63,6 +63,8 @@ struct dna_params {
 #define	DNA_LETTER_MASK		0x00000003	/* mask bits for letter */
 
 TRAS_DECLARE_ALGO(dna);
+
+TRAS_DECLARE_ALGO(dna_sparse);
 
 #endif
 

@@ -44,6 +44,8 @@
 #include <utils.h>
 #include <bits.h>
 #include <dna.h>
+#include <sparse.h>
+#include <cdefs.h>
 
 /*
  * The DNA test context
@@ -56,11 +58,6 @@ struct dna_ctx {
 	uint32_t	word;	/* last 3 words collected */
 	unsigned int	sparse;	/* number of missing words */
 };
-
-/* todo: temporary min definition here.
- */
-
-#define	min(a, b)	(((a) < (b)) ? (a) : (b))
 
 int
 dna_init(struct tras_ctx *ctx, void *params)
@@ -100,7 +97,7 @@ dna_init(struct tras_ctx *ctx, void *params)
 int
 dna_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	struct dna_ctx *c = ctx->context;
+	struct dna_ctx *c;
 	uint32_t *strokes, word;
 	unsigned int n, i, k;
 
@@ -112,6 +109,8 @@ dna_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 		return (EINVAL);
 	if (nbits == 0)
 		return (0);
+
+	c = ctx->context;
 
 	strokes = (uint32_t *)data;
 	n = nbits / 32;
@@ -166,7 +165,7 @@ dna_final(struct tras_ctx *ctx)
 
 	s = (double)c->sparse - 141910.4026047629;
 	s = fabs(s) / 337.0 / sqrt((double)2.0);
-	pvalue = erfc(fabs(s));
+	pvalue = erfc(s);
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
@@ -214,4 +213,75 @@ const struct tras_algo dna_algo = {
 	.final =	dna_final,
 	.restart =	dna_restart,
 	.free =		dna_free,
+};
+
+static struct sparse_params sparse_params_dna = {
+	.m = 4,
+	.k = 10,
+	.b = 2,
+	.r = 32,
+	.wmax = SPARSE_MAX_WORDS,
+	.mean = 141910.4026047629,
+	.var = 337,0,
+	.alpha = 0.01,
+};
+int
+dna_sparse_init(struct tras_ctx *ctx, void *params)
+{
+
+	if (params != NULL)
+		return (EINVAL);
+
+	return (sparse_init(ctx, &sparse_params_dna));
+}
+
+int
+dna_sparse_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+
+	return (sparse_update(ctx, data, nbits));
+}
+
+int
+dna_sparse_final(struct tras_ctx *ctx)
+{
+
+	return (sparse_final(ctx));
+}
+
+int
+dna_sparse_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+
+	return (sparse_test(ctx, data, nbits));
+}
+
+int
+dna_sparse_restart(struct tras_ctx *ctx, void *params)
+{
+
+	if (params != NULL)
+		return (EINVAL);
+
+	return (sparse_restart(ctx, &sparse_params_dna));
+}
+
+int
+dna_sparse_free(struct tras_ctx *ctx)
+{
+
+	return (sparse_free(ctx));
+}
+
+const struct tras_algo dna_sparse_algo = {
+	.name =		"dna_sparse",
+	.desc =		"Four Letters C,G,A,T words test using sparse.",
+	.id =		0,
+	.version =	{ 0, 1, 1 },
+	.init =		dna_sparse_init,
+	.update =	dna_sparse_update,
+	.test =		dna_sparse_test,
+	.final =	dna_sparse_final,
+	.restart =	dna_sparse_restart,
+	.free =		dna_sparse_free,
 };
