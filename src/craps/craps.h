@@ -39,7 +39,14 @@ struct craps_params {
 	double		alpha2;	/* alpha for 2nd level test */
 };
 
-#define	CRAPS_MIN_GAMES		/* minum number of games for final */
+/* The minimum number of games for final */
+#define	CRAPS_MIN_GAMES		200000
+
+/* Number of bits to finalize the DNA test */
+#define	CRAPS_BITS	(DNA_LETTERS * 32)
+
+#define	CRAPS_MIN_BITS	CRAPS_BITS	/* minimun number of bits for test */
+#define	CRAPS_MAX_BITS	CRAPS_BITS	/* maximum number of bits for test */
 
 TRAS_DECLARE_ALGO(craps);
 

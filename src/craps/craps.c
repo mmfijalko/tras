@@ -56,7 +56,7 @@ struct craps_ctx {
 	int		next;	/* game not finished */
 	unsigned int	toss;	/* last toss dice sum */
 	double		alpha1;	/* 1st level test alpha */
-	double		alpha2	/* 2nd level test alpha */
+	double		alpha2;	/* 2nd level test alpha */
 };
 
 /*
@@ -232,8 +232,7 @@ craps_final(struct tras_ctx *ctx)
 	var = p * (1.0 - p) * c->K;
 
 	s = ((double)c->wins - mean) / var;
-	s = fabs(s / sqrt(double)2.0);
-	pvalue1 = erfc(s);
+	pvalue1 = erfc(fabs(s) / sqrt(2.0));
 
 /* xxx: temporary 2nd level success */
 pvalue2 = 1.0;
