@@ -3,13 +3,16 @@ CFLAGS=	-g
 CFLAGS+=-I${CURDIR}
 CFLAGS+=-I${CURDIR}/../include/
 CFLAGS+=-I${CURDIR}/../utils/
+CFLAGS+=-I${CURDIR}/../sparse/
 
 VPATH+=${CURDIR}/../utils/
 VPATH+=${CURDIR}/../tras/
+VPATH+=${CURDIR}/../sparse/
+
 
 LDFLAGS=-lm
 
-all: bstream.o hamming8.o utils.o tras.o
+all: bstream.o hamming8.o utils.o tras.o sparse.o
 
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@

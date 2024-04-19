@@ -28,63 +28,68 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * The Minimum Distance Test.
+ * The Bitstream Test.
  */
 
 #include <stdint.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 #include <tras.h>
 #include <hamming8.h>
 #include <utils.h>
 #include <bits.h>
+#include <cdefs.h>
+#include <sparse.h>
 #include <bstream.h>
 
 /*
- * The minimum distance test context.
+ * The bistream test is one of the sparse occupancy test variant.
+ * Using sparse occupancy test context so the parameters.
  */
-struct bstream_ctx {
-	unsigned int	nbits;	/* number of bits processed */
-	double		alpha;	/* significance level for H0 */
+static const struct sparse_params bstream_params = {
+	.m = 2,
+	.k = 20,
+	.b = 1,
+	.r = 1,
+	.wmax = SPARSE_MAX_WORDS,
+	.mean = 141909.0,
+	.var = 428.0,
+	.alpha = 0.01,
 };
 
 int
 bstream_init(struct tras_ctx *ctx, void *params)
 {
-	struct bstream_ctx *c;
 	struct bstream_params *p = params;
+	struct sparse_params sp;
+	int error;
 
-	if (ctx == NULL || params == NULL)
+	if (params == NULL)
 		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
 
-	c = malloc(sizeof(struct bstream_ctx));
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
-	}
+	memcpy(&sp, &bstream_params, sizeof(struct sparse_params));
+	sp.alpha = p->alpha;
 
-	/* todo: other initializations when defined */
+	error = sparse_init(ctx, &sp);
+	if (error != 0)
+		return (error);
 
-	c->nbits = 0;
-
-	ctx->context = c;
 	ctx->algo = &bstream_algo;
-	ctx->state = TRAS_STATE_INIT;
 
-	return (0);
+	return (0);	
 }
 
 int
 bstream_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	struct bstream_ctx *c;
+	struct sparse_ctx *c;
+	unsigned int n, i, j, k;
+	uint32_t word, mask, wpos;
+	uint8_t *bytes = (uint8_t *)data;
 
 	if (ctx == NULL || data == NULL)
 		return (EINVAL);
@@ -93,10 +98,40 @@ bstream_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 
 	c = ctx->context;
 
-	(void)c;
+	if (nbits == 0 || c->nbits >= BSTREAM_BITS) {
+		c->nbits += nbits;
+		return (0);
+	}
 
-	/* todo: implementation */
+	k = min(c->letters, BSTREAM_WORDLEN);
+	k = min(nbits, BSTREAM_WORDLEN - k);
+	for (i = 0; i < k; i++) {
+		c->word = ((c->word << 1) & ~0x01) & 0x000fffff;
+		c->word |= (bytes[i >> 3] >> (7 - (i & 0x07))) & 0x01;
+	}
+	c->letters += k;
 
+	if (c->letters < BSTREAM_WORDLEN || c->letters >= BSTREAM_LETTERS) {
+		c->nbits += nbits;
+		return (0);
+	}
+
+	n = nbits - k;
+	n = min(n, BSTREAM_LETTERS - c->letters);
+	word = c->word;
+	for (j = 0, i = k; j < n; j++, i++) {
+		mask = (bytes[i >> 3] >> (7 - (i & 0x07))) & 0x01;
+		word = ((word << 1) | mask) & 0x000fffff;
+		mask = 1 << (word & 0x1f);
+		wpos = word >> 5;
+		if ((c->wmap[wpos] & mask) == 0) {
+			c->wmap[wpos] |= mask;
+			c->sparse--;
+		}
+	}
+
+	c->word = word;
+	c->letters += n;
 	c->nbits += nbits;
 
 	return (0);
@@ -105,35 +140,8 @@ bstream_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 int
 bstream_final(struct tras_ctx *ctx)
 {
-	struct bstream_ctx *c;
-	double pvalue, sobs;
-	int sum;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
-
-	c = ctx->context;
-
-	(void)c;
-
-	/* todo: implementation */
-
-	pvalue = 0.0;
-
-	if (pvalue < c->alpha)
-		ctx->result.status = TRAS_TEST_FAILED;
-	else
-		ctx->result.status = TRAS_TEST_PASSED;
-
-	ctx->result.discard = c->nbits & 0x07;
-	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
-
-	ctx->state = TRAS_STATE_FINAL;
-
-	return (0);
+	return (sparse_final(ctx));
 }
 
 int

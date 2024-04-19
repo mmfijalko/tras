@@ -37,6 +37,18 @@ struct bstream_params {
 	double	alpha;	/* significance level for H0 */
 };
 
+/* The number of possible 20 letters words, 2 ^ 20 */
+#define	BSTREAM_WORDS		1048576
+
+/* The length of the bstream test word, number of letters */
+#define	BSTREAM_WORDLEN		20
+
+/* Total number of bits to finalize the test, 2^21 + 19 */
+#define	BSTREAM_LETTERS		(2 * BSTREAM_WORDS + 19)
+
+/* Number of bits to finalize the bstream test. */
+#define	BSTREAM_BITS		BSTREAM_LETTERS
+
 TRAS_DECLARE_ALGO(bstream);
 
 #endif
