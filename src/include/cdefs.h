@@ -1,7 +1,7 @@
 /*-
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * Copyright (c) 2023 Marek Marcin Fijałkowski
+ * Copyright (c) 2024 Marek Marcin Fijałkowski
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,15 +29,10 @@
  * SUCH DAMAGE.
  */
 
-#include <frequency.h>
-#include <blkfreq.h>
-#include <runs.h>
-#include <sphere3d.h>
-#include <mindist.h>
-#include <plot.h>
-#include <squeeze.h>
-#include <approxe.h>
-#include <sparse.h>
-#include <opso.h>
-#include <dna.h>
-#include <bstream.h>
+#ifndef	__CDEFS_H__
+#define	__CDEFS_H__
+
+#define	min(a, b)	(((a) < (b)) ? (a) : (b))
+#define	max(a, b)	(((a) > (b)) ? (a) : (b))
+
+#endif

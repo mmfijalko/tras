@@ -41,6 +41,8 @@ struct tras_algo;
 struct tras_result {
 	int			status;		/* true if test passed */
 	unsigned int		discard;	/* number of bits discarded */
+	double			stats1;		/* statistics #1 */
+	double			stats2;		/* statistics #2 */
 	double			pvalue1;	/* P-value #1 */
 	double			pvalue2;	/* P-value #2 */
 };
