@@ -28,13 +28,14 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * The Minimum Distance Test.
+ * The Overlapping Pairs Sparse Occupancy test.
  */
 
 #include <stdint.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 #include <tras.h>
@@ -44,18 +45,25 @@
 #include <opso.h>
 
 /*
- * The minimum distance test context.
+ * The OPSO test context.
  */
 struct opso_ctx {
 	unsigned int	nbits;	/* number of bits processed */
 	double		alpha;	/* significance level for H0 */
+	uint32_t *	wmap;	/* bitmap for opso words */
+	uint32_t	word;	/* last letter collected */
+	unsigned int	letters;/* number of letters processed */
+	unsigned int	sparse;	/* number of missing words */
 };
+
+#define	min(a, b)	(((a) < (b)) ? (a) : (b))
 
 int
 opso_init(struct tras_ctx *ctx, void *params)
 {
 	struct opso_ctx *c;
 	struct opso_params *p = params;
+	int size;
 
 	if (ctx == NULL || params == NULL)
 		return (EINVAL);
@@ -64,16 +72,19 @@ opso_init(struct tras_ctx *ctx, void *params)
 	if (ctx->state > TRAS_STATE_NONE)
 		return (EINPROGRESS);
 
-	c = malloc(sizeof(struct opso_ctx));
+	c = malloc(sizeof(struct opso_ctx) + OPSO_WORDS / 8);
 	if (c == NULL) {
 		ctx->state = TRAS_STATE_NONE;
 		return (ENOMEM);
 	}
-
-	/* todo: other initializations when defined */
+	c->wmap = (uint32_t *)(c + 1);
+	memset(c->wmap, 0, OPSO_WORDS / 8);
 
 	c->nbits = 0;
-
+	c->alpha = p->alpha;
+	c->letters = 0;
+	c->word = 0;
+	c->sparse = OPSO_WORDS;
 	ctx->context = c;
 	ctx->algo = &opso_algo;
 	ctx->state = TRAS_STATE_INIT;
@@ -85,19 +96,57 @@ int
 opso_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct opso_ctx *c;
+	unsigned int n, i, k;
+	uint32_t *strokes, word;
 
 	if (ctx == NULL || data == NULL)
 		return (EINVAL);
 	if (ctx->state != TRAS_STATE_INIT)
 		return (ENXIO);
+	if (nbits & 0x1f)
+		return (EINVAL);
+	if (nbits == 0)
+		return (0);
 
 	c = ctx->context;
 
-	(void)c;
+	if (c->nbits >= OPSO_MAX_BITS) {
+		c->nbits += nbits;
+		return (0);
+	}
 
-	/* todo: implementation */
+	strokes = (uint32_t *)data;
+	n = nbits / 32;
 
-	c->nbits += nbits;
+	if (c->letters < 2) {
+		k = min(n, 2 - c->letters);
+		for (i = 0; i < k; i++) {
+			c->word = (c->word << 10) & ~OPSO_LETTER_MASK;
+			c->word |= ((strokes[i] >> 22) & OPSO_LETTER_MASK) &
+			   OPSO_WORD_MASK;
+		}
+		c->nbits += k * 32;
+		c->letters += k;
+		if (c->letters < 2)
+			return (0);
+		strokes += k;
+		n = n - k;
+	}
+
+	k = min(OPSO_LETTERS - c->letters, n);
+	word = c->word;
+
+	for (i = 0; i < k; i++) {
+		word = ((word << 10) | ((strokes[i] >> 22) & 0x000003ff)) &
+		    0x000fffff;
+		if ((c->wmap[word >> 5] & (1 << (word & 0x1f))) == 0) {
+			c->wmap[word >> 5] |= (1 << (word & 0x1f));
+			c->sparse--;
+		}
+	}
+	c->word = word;
+	c->letters += n;
+	c->nbits += n * 32;
 
 	return (0);
 }
@@ -106,8 +155,7 @@ int
 opso_final(struct tras_ctx *ctx)
 {
 	struct opso_ctx *c;
-	double pvalue, sobs;
-	int sum;
+	double pvalue, s;
 
 	if (ctx == NULL)
 		return (EINVAL);
@@ -115,19 +163,19 @@ opso_final(struct tras_ctx *ctx)
 		return (ENXIO);
 
 	c = ctx->context;
+	if (c->nbits < OPSO_MIN_BITS)
+		return (EALREADY);
 
-	(void)c;
-
-	/* todo: implementation */
-
-	pvalue = 0.0;
+	s = (double)c->sparse - 141909.3299550069;
+	s = fabs(s) / 290.4622634038 / sqrt((double)2.0);
+	pvalue = erfc(fabs(s));
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.discard = c->nbits & 0x07;
+	ctx->result.discard = c->nbits - OPSO_BITS;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0;
 
