@@ -37,6 +37,7 @@ struct sparse_params {
 	unsigned int	m;	/* number of letters in alphabet */
 	unsigned int	k;	/* number of letters in a word */
 	unsigned int	b;	/* number of bits for a letter */
+	unsigned int	r;	/* number of bits in one rng word */
 	unsigned int	wmax;	/* max number of words to update */
 	double		mean;	/* mean of missing words */
 	double		var;	/* variance of normal statistics */
@@ -48,6 +49,20 @@ struct sparse_params {
 
 /* Max number of sparse test update */
 #define	SPARSE_MAX_WORDS	(2 * SPARSE_WORDS)
+
+/*
+ * The Sparse Occupancy test context. 
+ */
+struct sparse_ctx {
+	unsigned int	nbits;	/* number of bits processed */
+	double		alpha;	/* significance level for H0 */
+	uint32_t *	wmap;	/* bits map for DNA words */
+	unsigned int	letters;/* letters in context */
+	unsigned int	lmax;	/* max letters to update */
+	uint32_t	word;	/* last 3 words collected */
+	unsigned int	sparse;	/* number of missing words */
+	struct sparse_params params; /* backup of params */
+};
 
 TRAS_DECLARE_ALGO(sparse);
 

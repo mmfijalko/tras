@@ -44,25 +44,7 @@
 #include <utils.h>
 #include <bits.h>
 #include <sparse.h>
-
-/*
- * The Sparse Occupancy test context. 
- */
-struct sparse_ctx {
-	unsigned int	nbits;	/* number of bits processed */
-	double		alpha;	/* significance level for H0 */
-	uint32_t *	wmap;	/* bits map for DNA words */
-	unsigned int	letters;/* letters in context */
-	unsigned int	lmax;	/* max letters to update */
-	uint32_t	word;	/* last 3 words collected */
-	unsigned int	sparse;	/* number of missing words */
-	struct sparse_params params; /* backup of params */
-};
-
-/* todo: temporary min definition here.
- */
-
-#define	min(a, b)	(((a) < (b)) ? (a) : (b))
+#include <cdefs.h>
 
 #include <stdio.h>
 
@@ -82,7 +64,8 @@ sparse_verify_params(struct tras_ctx *ctx, struct sparse_params *p)
 		return (EINVAL);
 	if (p->wmax != SPARSE_MAX_WORDS)
 		return (EINVAL);
-
+	if (p->r == 0 || p->r > 32)
+		return (EINVAL);
 	return (0);
 }
 
@@ -90,7 +73,7 @@ inline static unsigned int
 sparse_max_nbits(struct sparse_ctx *c, struct sparse_params *p)
 {
 
-	return ((p->wmax + p->k - 1) * 32);
+	return (((p->wmax + p->k - 1) * p->r));
 }
 
 inline static unsigned int
@@ -133,6 +116,7 @@ sparse_init(struct tras_ctx *ctx, void *params)
 	c->letters = 0;
 	c->lmax = p->wmax + p->k - 1;
 	c->sparse = nwords;
+	c->word = 0;
 	ctx->context = c;
 	ctx->algo = &sparse_algo;
 	ctx->state = TRAS_STATE_INIT;
@@ -171,11 +155,11 @@ sparse_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	k = min(c->letters, p->k);
 	k = min(n, p->k - k);
 
-	lmask = (1 << p->k) - 1;
+	lmask = (1 << p->b) - 1;
 	wmask = (1 << (p->k * p->b)) - 1;
 
 	for (i = 0; i < k; i++) {
-		c->word = ((c->word << p->k) & ~lmask) & wmask;
+		c->word = ((c->word << p->b) & ~lmask) & wmask;
 		c->word |= ((strokes[i] >> (32 - p->b)) & lmask);
 	}
 	c->letters += k;
@@ -221,6 +205,7 @@ sparse_final(struct tras_ctx *ctx)
 
 	if (c->nbits < sparse_min_nbits(c, p))
 		return (EALREADY);
+
 	s = (double)c->sparse - p->mean;
 	s = fabs(s) / p->var / sqrt((double)2.0);
 	pvalue = erfc(fabs(s));
@@ -231,6 +216,8 @@ sparse_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = c->nbits - sparse_max_nbits(c, p);
+	ctx->result.stats1 = (double)c->sparse;
+	ctx->result.stats2 = s;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0;
 
@@ -249,8 +236,32 @@ sparse_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 int
 sparse_restart(struct tras_ctx *ctx, void *params)
 {
+	struct sparse_ctx *c;
+	struct sparse_params *p;
+	unsigned int nwords;
 
-	return (tras_do_restart(ctx, params));
+	if (ctx == NULL)
+		return (EINVAL);
+
+	if (params != NULL)
+		return (tras_do_restart(ctx, params));
+
+	if (ctx->state != TRAS_STATE_FINAL)
+		return (ENXIO);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
+	c = ctx->context;
+	p = &c->params;
+
+	nwords = (unsigned int)pow((double)p->m, (double)p->k);
+
+	c->nbits = 0;
+	c->letters = 0;
+	c->sparse = nwords;
+	memset(c->wmap, 0, nwords / 8);
+
+	return (0);
 }
 
 int
