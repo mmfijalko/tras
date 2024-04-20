@@ -14,7 +14,7 @@ LDFLAGS=-lm
 
 all: test
 
-test: frequency.o hamming8.o utils.o tras.o runs.o test.o
+test: frequency.o hamming8.o utils.o tras.o runs.o
 	${CC} $^ ${LDFLAGS} -o $@
 
 %.o: %.c
