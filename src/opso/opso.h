@@ -37,6 +37,24 @@ struct opso_params {
 	double	alpha;	/* significance level for H0 */
 };
 
+/* The number of possible OPSO 2-letter words, 2^20 */
+#define	OPSO_WORDS		1048576	
+
+/* The length of the OPSO word, number of letters */
+#define	OPSO_WORDLEN		2
+
+/* Total number of keystrokes to finalize the test, 2^21 + 9 */
+#define	OPSO_LETTERS		(2 * OPSO_WORDS + 1)
+
+/* Number of bits to finalize the OPSO test */
+#define	OPSO_BITS		(OPSO_LETTERS * 32)
+
+#define	OPSO_MIN_BITS		OPSO_BITS	/* minimum nuber of bits */
+#define	OPSO_MAX_BITS		OPSO_BITS	/* maximum number of bits */
+
+#define	OPSO_WORD_MASK		0x000fffff	/* mask bits for word */
+#define	OPSO_LETTER_MASK	0x000003ff	/* mask bits for letter */
+
 TRAS_DECLARE_ALGO(opso);
 
 #endif
