@@ -28,6 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * Cumulative Sums (Cusum) Test
  */
 
 #include <stdint.h>
@@ -41,77 +42,51 @@
 #include <tras.h>
 #include <hamming8.h>
 #include <utils.h>
+#include <cdefs.h>
+#include <const.h>
 #include <cusum.h>
 
-#define abs(a)	(((a) < 0) ? -(a) : (a))
-
 /*
- * Each value represents maximum Hamming weight for set of normalized
- * subsequences of lengths {1..8} created from 8-bits sequence that
- * value is equal the position in the below table.
+ * The table represent a absolute of minimum value for
+ * random walk for each 8-bit sequence, where 0 represents
+ * one step down and 1 represents one step up.
  */
-static int cusum_max8[256] = {
-	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
-	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
-	 0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  2,  0,  2,  2,  4,
-	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
-	 0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  2,  0,  2,  2,  4,
-	 0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  2,  0,  2,  2,  4,
-	 0,  0,  0,  2,  0,  2,  2,  4,  0,  2,  2,  4,  2,  4,  4,  6,
-	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,
-	 0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  2,  0,  2,  2,  4,
-	 0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  2,  0,  2,  2,  4,
-	 0,  0,  0,  2,  0,  2,  2,  4,  0,  2,  2,  4,  2,  4,  4,  6,
-	 0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  2,  0,  2,  2,  4,
-	 0,  0,  0,  2,  0,  2,  2,  4,  0,  2,  2,  4,  2,  4,  4,  6,
-	 0,  0,  0,  2,  0,  2,  2,  4,  0,  2,  2,  4,  2,  4,  4,  6,
-	 0,  2,  2,  4,  2,  4,  4,  6,  2,  4,  4,  6,  4,  6,  6,  8,
+static uint8_t cusum_mintab[256] = {
+	8, 7, 6, 6, 6, 5, 5, 5, 6, 5, 4, 4, 4, 4, 4, 4,
+	6, 5, 4, 4, 4, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3,
+	6, 5, 4, 4, 4, 3, 3, 3, 4, 3, 2, 2, 2, 2, 2, 2,
+	4, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+	6, 5, 4, 4, 4, 3, 3, 3, 4, 3, 2, 2, 2, 2, 2, 2,
+	4, 3, 2, 2, 2, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1,
+	4, 3, 2, 2, 2, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1,
+	2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+	6, 5, 4, 4, 4, 3, 3, 3, 4, 3, 2, 2, 2, 2, 2, 2,
+	4, 3, 2, 2, 2, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1,
+	4, 3, 2, 2, 2, 1, 1, 1, 2, 1, 0, 0, 0, 0, 0, 0,
+	2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	4, 3, 2, 2, 2, 1, 1, 1, 2, 1, 0, 0, 0, 0, 0, 0,
+	2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-/*
- * Each value represents minimum Hamming weight for set of normalized
- * subsequences of lengths {1..8} created from 8-bits sequence that
- * value is equal the position in the below table.
- */
-static int cusum_min8[256] = {
-	-8, -6, -6, -4, -6, -4, -4, -2, -6, -4, -4, -2, -4, -2, -2,  0,
-	-6, -4, -4, -2, -4, -2, -2,  0, -4, -2, -2,  0, -2,  0,  0,  0,
-	-6, -4, -4, -2, -4, -2, -2,  0, -4, -2, -2,  0, -2,  0,  0,  0,
-	-4, -2, -2,  0, -2,  0,  0,  0, -2,  0,  0,  0,  0,  0,  0,  0,
-	-6, -4, -4, -2, -4, -2, -2,  0, -4, -2, -2,  0, -2,  0,  0,  0,
-	-4, -2, -2,  0, -2,  0,  0,  0, -2,  0,  0,  0,  0,  0,  0,  0,
-	-4, -2, -2,  0, -2,  0,  0,  0, -2,  0,  0,  0,  0,  0,  0,  0,
-	-2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-	-6, -4, -4, -2, -4, -2, -2,  0, -4, -2, -2,  0, -2,  0,  0,  0,
-	-4, -2, -2,  0, -2,  0,  0,  0, -2,  0,  0,  0,  0,  0,  0,  0,
-	-4, -2, -2,  0, -2,  0,  0,  0, -2,  0,  0,  0,  0,  0,  0,  0,
-	-2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-	-4, -2, -2,  0, -2,  0,  0,  0, -2,  0,  0,  0,  0,  0,  0,  0,
-	-2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-	-2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
-};
-
-
-/* Wrong !!!, elements can't be zero */
-static int cusum_abs8[256] = {
-	 8,  6,  6,  4,  6,  4,  4,  2,  6,  4,  4,  2,  4,  2,  2,  0,
-	 6,  4,  4,  2,  4,  2,  2,  0,  4,  2,  2,  0,  2,  0,  0,  2,
-	 6,  4,  4,  2,  4,  2,  2,  0,  4,  2,  2,  0,  2,  0,  0,  2,
-	 4,  2,  2,  0,  2,  0,  0,  2,  2,  0,  0,  2,  0,  2,  2,  4,
-	 6,  4,  4,  2,  4,  2,  2,  0,  4,  2,  2,  0,  2,  0,  0,  2,
-	 4,  2,  2,  0,  2,  0,  0,  2,  2,  0,  0,  2,  0,  2,  2,  4,
-	 4,  2,  2,  0,  2,  0,  0,  2,  2,  0,  0,  2,  0,  2,  2,  4,
-	 2,  0,  0,  2,  0,  2,  2,  4,  0,  2,  2,  4,  2,  4,  4,  6,
-	 6,  4,  4,  2,  4,  2,  2,  0,  4,  2,  2,  0,  2,  0,  0,  2,
-	 4,  2,  2,  0,  2,  0,  0,  2,  2,  0,  0,  2,  0,  2,  2,  4,
-	 4,  2,  2,  0,  2,  0,  0,  2,  2,  0,  0,  2,  0,  2,  2,  4,
-	 2,  0,  0,  2,  0,  2,  2,  4,  0,  2,  2,  4,  2,  4,  4,  6,
-	 4,  2,  2,  0,  2,  0,  0,  2,  2,  0,  0,  2,  0,  2,  2,  4,
-	 2,  0,  0,  2,  0,  2,  2,  4,  0,  2,  2,  4,  2,  4,  4,  6,
-	 2,  0,  0,  2,  0,  2,  2,  4,  0,  2,  2,  4,  2,  4,  4,  6,
-	 0,  2,  2,  4,  2,  4,  4,  6,  2,  4,  4,  6,  4,  6,  6,  8,
+static uint8_t cusum_maxtab[256] = {
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2,
+	0, 0, 0, 0, 0, 0, 1, 2, 1, 1, 1, 2, 2, 2, 3, 4,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2,
+	0, 0, 0, 0, 0, 0, 1, 2, 1, 1, 1, 2, 2, 2, 3, 4,
+	1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 2, 2, 3, 4,
+	2, 2, 2, 2, 2, 2, 3, 4, 3, 3, 3, 4, 4, 4, 5, 6,
+	1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2,
+	1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 2, 2, 3, 4,
+	1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 2, 2, 3, 4,
+	2, 2, 2, 2, 2, 2, 3, 4, 3, 3, 3, 4, 4, 4, 5, 6,
+	2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 4,
+	2, 2, 2, 2, 2, 2, 3, 4, 3, 3, 3, 4, 4, 4, 5, 6,
+	3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 4, 4, 4, 5, 6,
+	4, 4, 4, 4, 4, 4, 5, 6, 5, 5, 5, 6, 6, 6, 7, 8,
 };
 
 struct cusum_ctx {
@@ -120,7 +95,7 @@ struct cusum_ctx {
 	int		maxs;		/* maximum sum so far */
 	int		sum;		/* sum for all subsequences */
 	int		mode;		/* forward or backward direction */
-	int		alpha;		/* significance level */
+	double		alpha;		/* significance level */
 };
 
 int
@@ -129,7 +104,7 @@ cusum_init(struct tras_ctx *ctx, void *params)
 	struct cusum_ctx *c;
 	struct cusum_params *p = params;
 
-	if (ctx == NULL || params != NULL)
+	if (ctx == NULL || params == NULL)
 		return (EINVAL);
 	if (p->alpha <= 0.0 || p->alpha >= 1.0)
 		return (EINVAL);
@@ -167,8 +142,8 @@ cusum_update_forward(struct cusum_ctx *c, void *data, unsigned int nbits)
 	n = nbits >> 3;
 
 	for (i = 0; i < n; i++, p++) {
-		mins = cusum_min8[*p];
-		maxs = cusum_max8[*p];
+		mins = cusum_mintab[*p];
+		maxs = cusum_maxtab[*p];
 		if (c->sum - mins < c->mins)
 			c->mins = c->sum - mins;
 		if (c->sum + maxs > c->maxs)
@@ -225,8 +200,6 @@ cusum_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (0);
 }
 
-#define	SQRT_2	1.414213562373095048801688724209698078569672
-
 /*
  * Standard normal cumulative probability distribution function.
  */
@@ -237,9 +210,8 @@ int
 cusum_final(struct tras_ctx *ctx)
 {
 	struct cusum_ctx *c;
-	unsigned int z;
 	double pvalue, sum, sqrtn;
-	int first, last, k;
+	int first, last, k, n, z;
 
 	if (ctx == NULL)
 		return (EINVAL);
@@ -251,14 +223,10 @@ cusum_final(struct tras_ctx *ctx)
 	if (c->nbits < CUSUM_MIN_BITS)
 		return (EALREADY);
 
-	if (abs(c->mins) > c->maxs)
-		z = (unsigned int)abs(c->mins);
-	else
-		z = (unsigned int)c->maxs;
+	z = (abs(c->mins) > c->maxs) ? abs(c->mins) : c->maxs;
 
 	n = (int)c->nbits;
-
-	sqrtn = sqrt(n);
+	sqrtn = sqrt(c->nbits);
 
 	first = (-n / z + 1) / 4;
 	last = (n / z - 1) / 4;
@@ -270,10 +238,9 @@ cusum_final(struct tras_ctx *ctx)
 	first = (-n / z - 3) / 4;
 	last = (n / z - 1) / 4;
 	for (k = first; k <= last; k++) {
-		sum += stdnorm_cpdf((double)(4 * k + 3) * z / sqrtn);
-		sum -= stdnorm_cpdf((double)(4 * k + 1) * z / sqrtn);
+		sum -= stdnorm_cpdf((double)(4 * k + 3) * z / sqrtn);
+		sum += stdnorm_cpdf((double)(4 * k + 1) * z / sqrtn);
 	}
-
 	pvalue = 1.0 - sum;
 
 	if (pvalue < c->alpha)
@@ -282,6 +249,8 @@ cusum_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = 0;
+	ctx->result.stats1 = (double)z;
+	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0;
 
