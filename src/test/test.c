@@ -56,6 +56,15 @@ struct frequency_params frequency_params = {
 	.alpha = 0.05,
 };
 
+struct runs_params runs_params = {
+	.alpha = 0.01,
+};
+
+struct blkfreq_params blkfreq_params = {
+	.m = 21,
+	.alpha = 0.01,
+};
+
 struct sphere3d_params sphere3d_params = {
 	.K = SPHERE3D_MIN_TRIPLETS,
 	.alpha = 0.05,
@@ -80,14 +89,67 @@ struct dna_params dna_params = {
 	.alpha = 0.01,
 };
 
+struct dna_params opso_params = {
+	.alpha = 0.01,
+};
+
+struct bstream_params bstream_params = {
+	.alpha = 0.01,
+};
+
+struct sparse_params sparse_params_opso = {
+	.m = 1024,
+	.k = 2,
+	.b = 10,
+	.r = 32,
+	.wmax = SPARSE_MAX_WORDS,
+	.mean = 141909.3299550069,
+	.var = 290.4622634038,
+	.alpha = 0.01,
+};
+
+struct sparse_params sparse_params_otso = {
+	.m = 64,
+	.k = 3,
+	.b = 6,
+	.r = 32,
+	.wmax = SPARSE_MAX_WORDS,
+//	.mean = 87.9395,
+	.mean = 87.85,
+	.var = 9.37,
+	.alpha = 0.01,
+};
+
+struct sparse_params sparse_params_oqso = {
+	.m = 32,
+	.k = 4,
+	.b = 5,
+	.r = 32,
+	.wmax = SPARSE_MAX_WORDS,
+	.mean = 141909.6005321316,
+	.var = 294.6558723658,
+	.alpha = 0.01,
+};
+
+struct sparse_params sparse_params_dna = {
+	.m = 4,
+	.k = 10,
+	.b = 2,
+	.r = 32,
+	.wmax = SPARSE_MAX_WORDS,
+	.mean = 141910.4026047629,
+	.var = 337,0,
+	.alpha = 0.01,
+};
+
 static const struct test_algo algo_list[] = {
 	{ "frequency", &frequency_algo, &frequency_params, 0 },
 	{ "sphere3d", &sphere3d_algo, &sphere3d_params, 0 },
 	{ "approxe", NULL, NULL },
-	{ "blkfreq", NULL, NULL },
+	{ "blkfreq", &blkfreq_algo, &blkfreq_params },
 	{ "brank31", NULL, NULL },
 	{ "brank68", NULL, NULL },
-	{ "bstream", NULL, NULL },
+	{ "bstream", &bstream_algo, &bstream_params },
 	{ "c1tssbytes", NULL, NULL },
 	{ "cusum", NULL, NULL },
 	{ "excursion", NULL, NULL },
@@ -95,10 +157,9 @@ static const struct test_algo algo_list[] = {
 	{ "lcomplex", NULL, NULL},
 	{ "maurer", NULL, NULL },
 	{ "ntmatch", NULL, NULL },
-	{ "opso", NULL, NULL },
 	{ "otmatch", NULL, NULL },
 	{ "plot", &plot_algo, &plot_params },
-	{ "runs", NULL, NULL },
+	{ "runs", &runs_algo, &runs_params },
 	{ "sphere3d", NULL, NULL },
 	{ "squeeze", &squeeze_algo, &squeeze_params },
 	{ "bkampmassey", NULL, NULL },
@@ -107,7 +168,13 @@ static const struct test_algo algo_list[] = {
 	{ "bspace", NULL, NULL },
 	{ "c1tsbits", NULL, NULL },
 	{ "craps", NULL, NULL },
+	{ "sparse_opso", &sparse_algo, &sparse_params_opso },
+	{ "sparse_otso", &sparse_algo, &sparse_params_otso },
+	{ "sparse_oqso", &sparse_algo, &sparse_params_oqso },
+	{ "sparse_dna", &sparse_algo, &sparse_params_dna },
+	{ "opso", &opso_algo, &opso_params },
 	{ "dna", &dna_algo, &dna_params },
+	{ "dna_sparse", &dna_sparse_algo, NULL },
 	{ "excursionv", NULL, NULL },
 	{ "kstest", NULL, NULL },
 	{ "mindist", &mindist_algo, &mindist_params },
@@ -210,8 +277,8 @@ test_cmd_test(void)
 
 		snprintf(idstr, sizeof(idstr), "%s test #%d", algo->name, id);
 
-		printf("%-28s: pvalue = %.*f%-8s stats = %.*f%-8s %s\n", idstr,
-		    8, ctx.result.pvalue1, "\t", 8, ctx.result.pvalue2, "\t",
+		printf("%-28s: pvalue = %.*f%-8s stats1 = %.*f%-8s %s\n", idstr,
+		    8, ctx.result.pvalue1, "\t", 8, ctx.result.stats2, "\t",
 			(ctx.result.status == TRAS_TEST_PASSED) ? "success" : "failed");
 		error = algo->restart(&ctx, test_desc->params);
 		if (error != 0) {
