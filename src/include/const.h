@@ -27,18 +27,13 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * Cumulative Sums (Cusum) Test
  */
 
-#include <frequency.h>
-#include <blkfreq.h>
-#include <runs.h>
-#include <sphere3d.h>
-#include <mindist.h>
-#include <plot.h>
-#include <squeeze.h>
-#include <approxe.h>
-#include <sparse.h>
-#include <opso.h>
-#include <dna.h>
-#include <bstream.h>
-#include <cusum.h>
+#ifndef __CONST_H__
+#define	__CONST_H__
+
+#define	SQRT_2	1.414213562373095048801688724209698078569672
+
+#endif
