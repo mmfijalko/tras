@@ -56,6 +56,11 @@ struct frequency_params frequency_params = {
 	.alpha = 0.05,
 };
 
+struct approxe_params approxe_params = {
+	.m = 8,
+	.alpha = 0.05,
+};
+
 struct runs_params runs_params = {
 	.alpha = 0.01,
 };
@@ -142,16 +147,21 @@ struct sparse_params sparse_params_dna = {
 	.alpha = 0.01,
 };
 
+struct cusum_params cusum_params = {
+	.mode = CUSUM_MODE_FORWARD,
+	.alpha = 0.01,
+};
+
 static const struct test_algo algo_list[] = {
 	{ "frequency", &frequency_algo, &frequency_params, 0 },
 	{ "sphere3d", &sphere3d_algo, &sphere3d_params, 0 },
-	{ "approxe", NULL, NULL },
+	{ "approxe", &approxe_algo, &approxe_params },
 	{ "blkfreq", &blkfreq_algo, &blkfreq_params },
 	{ "brank31", NULL, NULL },
 	{ "brank68", NULL, NULL },
 	{ "bstream", &bstream_algo, &bstream_params },
 	{ "c1tssbytes", NULL, NULL },
-	{ "cusum", NULL, NULL },
+	{ "cusum", &cusum_algo, &cusum_params },
 	{ "excursion", NULL, NULL },
 	{ "fourier", NULL, NULL },
 	{ "lcomplex", NULL, NULL},
@@ -230,6 +240,11 @@ test_cmd_test(void)
 	int total;
 	char *data, idstr[64];
 
+	if (test_desc->algo == NULL) {
+		printf("test not implemented yet\n");
+		return (EINVAL);
+	}
+
 	tras_ctx_init(&ctx);
 
 	algo = test_desc->algo;
@@ -301,12 +316,11 @@ test_select_test(const char *name)
 	const struct test_algo *d = &algo_list[0];
 
 	while (d->name != NULL) {
-		if (strcmp(d->name, name) != 0) {
-			d++;
-		} else {
+		if (strcmp(d->name, name) == 0) {
 			test_desc = d;
 			break;
 		}
+		d++;
 	}
 	return ((test_desc == NULL) ? EINVAL : 0);
 }
