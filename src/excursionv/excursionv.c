@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <stddef.h>
+#include <math.h>
 
 #include <tras.h>
 #include <excursionv.h>
@@ -42,7 +43,12 @@
  * Private context for random excursion variant test.
  */
 struct excursionv_ctx {
-	double	alpha;		/* significance level */
+	unsigned int	nbits;		/* number of bits updated */
+	double		alpha;		/* significance level */
+	double *	pvalue;		/* P-values table */
+	unsigned int *	counts;		/* states counters */	
+	int		state;		/* current state */
+	unsigned int	cycle;		/* current cycle */
 };
 
 int
@@ -58,10 +64,15 @@ excursionv_init(struct tras_ctx *ctx, void *params)
 	if (ctx->state > TRAS_STATE_NONE)
 		return (EINPROGRESS);
 
-	c = malloc(sizeof(struct excursionv_ctx));
+	c = malloc(sizeof(struct excursionv_ctx) + 19 *
+	    (sizeof(int) + sizeof(double)));
 	if (c == NULL)
 		return (ENOMEM);
 
+	c->counts = (unsigned int *)(c + 1);
+	c->pvalue = (double *)(c->counts + 19);
+	c->state = 0;
+	c->cycle = 0;
 	c->alpha = p->alpha;
 
 	ctx->context = c;
@@ -72,39 +83,77 @@ excursionv_init(struct tras_ctx *ctx, void *params)
 }
 
 int
-excursionv_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+excursionv_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
+	struct excursionv_ctx *c;
+	uint8_t *p, mask;
+	unsigned int i;
 
-	/* todo: */
+	if (ctx == NULL || data == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
+	c = ctx->context;
+	p = (uint8_t *)data;
+
+	for (i = 0, mask = 0; i < nbits; i++, p++) {
+		mask = (mask != 0) ? mask >> 1 : 0x80;
+		c->state += (*p & mask) ? 1 : -1;
+		if (c->state < -9 || c->state > 9)
+			continue;
+		if (c->state != 0)
+			c->counts[c->state + 9]++;
+		else
+			c->cycle++;
+	}
+	c->nbits += nbits;
+
 	return (0);
 }
 
+/* 
+ * Todo: consider to return all 18 p-values and statistics.
+ */
 int
 excursionv_final(struct tras_ctx *ctx)
 {
 	struct excursionv_ctx *c;
-	double pvalue;
+	double stats, pvmin, pvmax;
+	int i, fail;
 
 	if (ctx == NULL)
 		return (EINVAL);
 	if (ctx->state != TRAS_STATE_INIT)
 		return (ENXIO);
-
-	/* todo: check min bits */
-
 	c = ctx->context;
+	if (c->nbits < EXCURSION_V_MIN_BITS)
+		return (EALREADY);
 
-	/* todo: here calculation of statistics */
-	pvalue = 0.0;
+	if (c->state != 0)
+		c->cycle++;
 
-	if (pvalue < c->alpha)
-		ctx->result.status = TRAS_TEST_FAILED;
-	else
-		ctx->result.status = TRAS_TEST_PASSED;
+	pvmin = pvmax = 0.0;
+
+	for (i = 0, fail = 0; i < 18; i++) {
+		stats = abs(c->counts[i] - c->cycle);
+		stats = stats / sqrt(2.0 * c->cycle * (4.0 * abs(i - 9) - 2.0));
+		c->pvalue[i] = erfc(stats);
+		if (c->pvalue[i] < c->alpha)
+			fail++;
+		if (c->pvalue[i] < pvmin)
+			pvmin = c->pvalue[i];
+		if (c->pvalue[i] > pvmax)
+			pvmax = c->pvalue[i];
+	}
+
+	ctx->result.status = fail ? TRAS_TEST_FAILED : TRAS_TEST_PASSED;	
 
 	ctx->result.discard = 0;
-	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
+	ctx->result.stats1 = 0.0;
+	ctx->result.stats2 = 0.0;
+	ctx->result.pvalue1 = pvmin;
+	ctx->result.pvalue2 = pvmax;
 
 	ctx->state = TRAS_STATE_FINAL;
 
