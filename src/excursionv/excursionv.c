@@ -28,15 +28,18 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * todo: name
  */
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 #include <stddef.h>
 #include <math.h>
 
 #include <tras.h>
+#include <cdefs.h>
 #include <excursionv.h>
 
 /*
@@ -64,13 +67,15 @@ excursionv_init(struct tras_ctx *ctx, void *params)
 	if (ctx->state > TRAS_STATE_NONE)
 		return (EINPROGRESS);
 
-	c = malloc(sizeof(struct excursionv_ctx) + 19 *
+	c = malloc(sizeof(struct excursionv_ctx) + 18 *
 	    (sizeof(int) + sizeof(double)));
 	if (c == NULL)
 		return (ENOMEM);
 
+	memset(c + 1, 0, 18 * sizeof(int));
+
 	c->counts = (unsigned int *)(c + 1);
-	c->pvalue = (double *)(c->counts + 19);
+	c->pvalue = (double *)(c->counts + 18);
 	c->state = 0;
 	c->cycle = 0;
 	c->alpha = p->alpha;
@@ -87,7 +92,7 @@ excursionv_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct excursionv_ctx *c;
 	uint8_t *p, mask;
-	unsigned int i;
+	unsigned int i, x, n;
 
 	if (ctx == NULL || data == NULL)
 		return (EINVAL);
@@ -96,19 +101,27 @@ excursionv_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 
 	c = ctx->context;
 	p = (uint8_t *)data;
-
-	for (i = 0, mask = 0; i < nbits; i++, p++) {
-		mask = (mask != 0) ? mask >> 1 : 0x80;
-		c->state += (*p & mask) ? 1 : -1;
-		if (c->state < -9 || c->state > 9)
-			continue;
-		if (c->state != 0)
-			c->counts[c->state + 9]++;
-		else
-			c->cycle++;
-	}
 	c->nbits += nbits;
 
+	while (nbits > 0) {
+		n = min(8, nbits);
+		mask = 0x80;
+		while (mask != 0) {
+			c->state += (*p & mask) ? 1 : -1;
+			if (c->state >= -9 && c->state <= 9) {
+				if (c->state != 0) {
+					x = (c->state < 0) ? c->state + 9 :
+							     c->state + 8;
+					c->counts[x]++;
+				} else {
+					c->cycle++;
+				}
+			}
+			mask = mask >> 1;
+		}
+		nbits -= n;
+		p++;
+	}
 	return (0);
 }
 
@@ -120,7 +133,7 @@ excursionv_final(struct tras_ctx *ctx)
 {
 	struct excursionv_ctx *c;
 	double stats, pvmin, pvmax;
-	int i, fail;
+	int i, x, fail;
 
 	if (ctx == NULL)
 		return (EINVAL);
@@ -133,11 +146,13 @@ excursionv_final(struct tras_ctx *ctx)
 	if (c->state != 0)
 		c->cycle++;
 
-	pvmin = pvmax = 0.0;
+	pvmin = 1.0;
+	pvmax = 0.0;
 
 	for (i = 0, fail = 0; i < 18; i++) {
 		stats = abs(c->counts[i] - c->cycle);
-		stats = stats / sqrt(2.0 * c->cycle * (4.0 * abs(i - 9) - 2.0));
+		x = (i < 9) ? (i - 9) : (i - 8);
+		stats = stats / sqrt(2.0 * c->cycle * (4.0 * abs(x) - 2.0));
 		c->pvalue[i] = erfc(stats);
 		if (c->pvalue[i] < c->alpha)
 			fail++;
@@ -147,10 +162,10 @@ excursionv_final(struct tras_ctx *ctx)
 			pvmax = c->pvalue[i];
 	}
 
-	ctx->result.status = fail ? TRAS_TEST_FAILED : TRAS_TEST_PASSED;	
+	ctx->result.status = fail ? TRAS_TEST_FAILED : TRAS_TEST_PASSED;
 
 	ctx->result.discard = 0;
-	ctx->result.stats1 = 0.0;
+	ctx->result.stats1 = (double)fail;
 	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvmin;
 	ctx->result.pvalue2 = pvmax;
