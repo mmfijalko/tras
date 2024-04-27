@@ -4,9 +4,15 @@ CFLAGS+=-I${CURDIR}
 CFLAGS+=-I${CURDIR}/../
 CFLAGS+=-I${CURDIR}/../include/
 CFLAGS+=-I${CURDIR}/../tras/
+CFLAGS+=-I${CURDIR}/../utils/
 
-all: maurer.o coron.o
+VPATH+=${CURDIR}/../utils/
+VPATH+=${CURDIR}/../tras/
 
+LDFLAGS=-lm
+
+all: maurer.o coron.o utils.o tras.o
+	
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@
 

@@ -40,11 +40,11 @@ struct universal_ctx {
 	uint32_t	block;		/* to store not full block */
 	unsigned int	nbits;		/* number of bits processed */
 	double		alpha;		/* significance level */
-	unsigned int	L;		/* */
-	unsigned int	Q;		/* */
+	unsigned int	L;		/* the length of each block */
+	unsigned int	Q;		/* the number of init block */
 	unsigned int 	K;		/* number of L-blocks processed */
-	uint8_t *	initq;		/* */
-	unsigned int *	lfreq;		/* frequency table */
+	unsigned int *	lblks;		/* last occurence of L-blocks */
+	double		stats;		/* statistic sum of log distance */
 };
 
 #define	UNIVERSAL_ID_MAURER	0
