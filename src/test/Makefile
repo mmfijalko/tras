@@ -16,6 +16,7 @@ CFLAGS+=-I${CURDIR}/../blkfreq/
 CFLAGS+=-I${CURDIR}/../runs/
 CFLAGS+=-I${CURDIR}/../cusum/
 CFLAGS+=-I${CURDIR}/../excursionv/
+CFLAGS+=-I${CURDIR}/../maurer/
 
 
 VPATH+=${CURDIR}/../utils/
@@ -34,6 +35,7 @@ VPATH+=${CURDIR}/../blkfreq/
 VPATH+=${CURDIR}/../runs/
 VPATH+=${CURDIR}/../cusum/
 VPATH+=${CURDIR}/../excursionv/
+VPATH+=${CURDIR}/../maurer/
 
 LDFLAGS=-lm
 
@@ -41,7 +43,7 @@ all: test
 
 test: test.o hamming8.o utils.o tras.o frequency.o runs.o blkfreq.o sphere3d.o \
       mindist.o plot.o squeeze.o approxe.o sparse.o opso.o dna.o bstream.o \
-      cusum.o excursionv.o
+      cusum.o excursionv.o maurer.o
 	${CC} $^ ${LDFLAGS} -o test
 
 %.o: %.c

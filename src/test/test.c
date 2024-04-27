@@ -147,8 +147,18 @@ struct sparse_params sparse_params_dna = {
 	.alpha = 0.01,
 };
 
+struct universal_params maurer_params = {
+	.alpha = 0.01,
+	.L = 6,
+	.Q = 10 * (1 << 6),
+};
+
 struct cusum_params cusum_params = {
 	.mode = CUSUM_MODE_FORWARD,
+	.alpha = 0.01,
+};
+
+struct excursionv_params excursionv_params = {
 	.alpha = 0.01,
 };
 
@@ -165,7 +175,7 @@ static const struct test_algo algo_list[] = {
 	{ "excursion", NULL, NULL },
 	{ "fourier", NULL, NULL },
 	{ "lcomplex", NULL, NULL},
-	{ "maurer", NULL, NULL },
+	{ "maurer", &maurer_algo, &maurer_params },
 	{ "ntmatch", NULL, NULL },
 	{ "otmatch", NULL, NULL },
 	{ "plot", &plot_algo, &plot_params },
@@ -185,7 +195,7 @@ static const struct test_algo algo_list[] = {
 	{ "opso", &opso_algo, &opso_params },
 	{ "dna", &dna_algo, &dna_params },
 	{ "dna_sparse", &dna_sparse_algo, NULL },
-	{ "excursionv", NULL, NULL },
+	{ "excursionv", &excursionv_algo, &excursionv_params },
 	{ "kstest", NULL, NULL },
 	{ "mindist", &mindist_algo, &mindist_params },
 	{ "operm5", NULL, NULL },
