@@ -42,3 +42,5 @@
 #include <dna.h>
 #include <bstream.h>
 #include <cusum.h>
+#include <excursionv.h>
+#include <maurer.h>
