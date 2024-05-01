@@ -28,20 +28,25 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * todo: name
  */
 
 #include <stdint.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 #include <tras.h>
+#include <cdefs.h>
+#include <const.h>
 #include <approxe.h>
 
 struct approxe_ctx {
 	unsigned int 	nbits;	/* number of bits processed */
-	uint8_t	*	first;	/* first m-1 appended bits */
+	uint32_t	first;	/* first m-1 appended bits */
+	uint32_t	block;	/* last not full block */
 	unsigned int *	freq0;	/* block value frequencies for m */
 	unsigned int *	freq1;	/* block value frequencies for m + 1 */
 	unsigned int	m;	/* bits for each block */
@@ -74,12 +79,14 @@ approxe_init(struct tras_ctx *ctx, void *params)
 	}
 	c->freq0 = (unsigned int *)(c + 1);
 	c->freq1 = (unsigned int *)(c->freq0 + n);
-	c->first = (uint8_t *)(c->freq1 + n * 2);
 
 	for (i = 0; i < n; i++)
 		c->freq0[i] = 0;
 	for (i = 0; i < 2 * n; i++)
 		c->freq1[i] = 0;
+
+	c->first = 0;
+	c->block = 0;
 
 	c->nbits = 0;
 	c->m = p->m;
@@ -92,29 +99,128 @@ approxe_init(struct tras_ctx *ctx, void *params)
 	return (0);
 }
 
+inline static uint32_t
+approxe_get_sequence(int offs, int nbits, uint8_t *data)
+{
+	uint32_t seq = 0;
+	uint8_t mask, b, *d;
+	int n;
+
+	d = data + offs / 8;
+
+	while (nbits > 0) {
+		b = *d++ & (0xff >> (offs & 0x07));
+		n = 8 - (offs & 0x7);
+		if (nbits < n) {
+			b = b >> (n - nbits);
+			n = nbits;
+		}
+		seq = (seq << n) | (uint32_t)b;
+		offs += n;
+		nbits -= n;
+	}
+	return (seq);
+}
+
+#define	EXTRACT_BIT(d, o)	\
+	(((d)[(o) >> 3] >> (7 - ((o) & 0x07))) & 0x01)
+
+static void
+approxe_update_sequence(uint8_t *p, unsigned int offs, unsigned int nbits,
+    unsigned int m, uint32_t block, unsigned int *freq)
+{
+	uint32_t mask;
+
+	mask = (1 << m) - 1;
+
+	while (nbits > 0) {
+		block = (block << 1) & mask;
+		block = block | EXTRACT_BIT(p, offs);
+		freq[block]++;
+		nbits--;
+		offs++;
+	}
+}
+
 int
-approxe_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+approxe_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct approxe_ctx *c;
+	unsigned int n, offs;
+	uint32_t block;
+	uint8_t *p;
 
 	if (ctx == NULL || data == NULL)
 		return (EINVAL);
 	if (ctx->state != TRAS_STATE_INIT)
 		return (ENXIO);
+	if (nbits == 0)
+		return (0);
 
 	c = ctx->context;
+	p = (uint8_t *)data;
 
-	/* todo */
+	offs = 0;
+	if (c->nbits < c->m) {
+		n = min(nbits, c->m - c->nbits);
+		block = approxe_get_sequence(0, n, data);
+		block = (c->first << n) | block;
+		c->first = block;
+		c->block = block;
+		if ((c->nbits + n) < c->m) {
+			c->nbits += nbits;
+			return (0);
+		}
+		/* Collected m bits sequence, update for m */
+		c->freq0[block]++;
+		offs = n;
+	}
 
-	return (ENOSYS);
+	n = c->nbits - offs;
+
+	/*
+	 * update frequency table for sequence with m bits length.
+	 */
+	approxe_update_sequence(p, offs, n, c->m, c->block, c->freq0);
+
+	/*
+	 * update frequency table for sequence with m + 1 bits length.
+	 */
+	approxe_update_sequence(p, offs, n, c->m + 1, c->block, c->freq1);
+
+	n = min(c->m, c->nbits);
+	block = approxe_get_sequence(c->nbits - n, n, data);
+	c->block = (c->block < n) | block;
+
+	c->nbits += nbits;
+
+	return (0);
 }
 
 int
 approxe_final(struct tras_ctx *ctx)
 {
 	struct approxe_ctx *c;
-	double pvalue, phim0, phim1;
+	double pvalue, phim0, phim1, stats;
 	unsigned int i, n, *freq;
+	uint8_t d[4];
+
+	if (ctx == NULL)
+		return (EINVAL);
+	if (ctx->state != TRAS_STATE_INIT)
+		return (ENXIO);
+
+	c = ctx->context;
+
+	d[0] = (c->first >> 24) & 0xff;
+	d[1] = (c->first >> 16) & 0xff;
+	d[2] = (c->first >>  8) & 0xff;
+	d[3] = (c->first >>  0) & 0xff;
+
+	n = 32 - c->m;
+
+	approxe_update_sequence(d, n, c->m - 1, c->m, c->block, c->freq0);
+	approxe_update_sequence(d, n, c->m - 1, c->m + 1, c->block, c->freq1);
 
 	n = (unsigned int)(pow(2.0, c->m));
 
@@ -138,9 +244,35 @@ approxe_final(struct tras_ctx *ctx)
 	for (i = 0, phim1 = 0.0; i < n; i++) {
 		phim1 += freq[i] * log(freq[i]);
 	}
+
+	stats = 2 * (double)c->nbits * (log(2.0) - (phim0 - phim1));
+
+	/*
+	 * todo: finalization is not finished since we don't have
+	 * igammac implementation yet.
+	 * pvalue = igamc(2 ^ (m-1), chi2 / 2);
+	 */
+	pvalue = 0;
+
+	if (pvalue < c->alpha)
+		ctx->result.status = TRAS_TEST_FAILED;
+	else
+		ctx->result.status = TRAS_TEST_PASSED;
+
+	ctx->result.discard = 0;
+	ctx->result.stats1 = stats;
+	ctx->result.stats2 = 0.0;
+	ctx->result.pvalue1 = pvalue;
+	ctx->result.pvalue2 = 0;
+
+	ctx->state = TRAS_STATE_FINAL;
+
 	return (0);
 }
 
+/*
+ * Test the data in continous memory region and finalize.
+ */
 int
 approxe_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
@@ -148,6 +280,9 @@ approxe_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (tras_do_test(ctx, data, nbits));
 }
 
+/*
+ * Restart the test with previous or new parameters.
+ */
 int
 approxe_restart(struct tras_ctx *ctx, void *params)
 {
@@ -155,6 +290,9 @@ approxe_restart(struct tras_ctx *ctx, void *params)
 	return (tras_do_restart(ctx, params));
 }
 
+/*
+ * Deallocate all resources for the tras context.
+ */
 int
 approxe_free(struct tras_ctx *ctx)
 {
