@@ -39,9 +39,8 @@
 #include <math.h>
 
 #include <tras.h>
+#include <cdefs.h>
 #include <sphere3d.h>
-
-#define	min(a, b)	(((a) < (b)) ? (a) : (b))
 
 #define	SPHERE3D_ID_FULL_NUMBERS	0
 #define	SPHERE3D_ID_PART_UPDATES	1
@@ -255,6 +254,8 @@ sphere3d_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = c->nbits - SPHERE3D_MIN_NBITS;
+	ctx->result.stats1 = r3min;
+	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0.0;
 
