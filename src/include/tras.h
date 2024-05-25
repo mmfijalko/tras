@@ -50,7 +50,6 @@ struct tras_result {
 #define	TRAS_TEST_PASSED	1		/* test passed */
 #define	TRAS_TEST_FAILED	0		/* test failed */
 
-
 /*
  * Generic structure for test context.
  */
@@ -75,6 +74,45 @@ typedef int (tras_test_update_t)(struct tras_ctx *, void *, unsigned int);
 typedef int (tras_test_final_t)(struct tras_ctx *);
 typedef int (tras_test_restart_t)(struct tras_ctx *, void *);
 typedef int (tras_test_free_t)(struct tras_ctx *);
+
+/*
+ * Helper macros for tras context and tests methods.
+ */
+#define	TRAS_CHECK_INIT(ctx) do {		\
+	if ((ctx) == NULL)			\
+		return (EINVAL);		\
+	if ((ctx)->state > TRAS_STATE_NONE)	\
+		return (EINPROGRESS);		\
+} while (0)
+
+#define	TRAS_CHECK_PARAM(param) do {		\
+	if ((param) == NULL)			\
+		return (EINVAL);		\
+} while (0)
+
+#define	TRAS_CHECK_ALPHA(alpha) do {		\
+	if ((alpha) >= 1.0 || (alpha) <= 0.0)	\
+		return (EINVAL);		\
+} while (0)
+
+#define	TRAS_CHECK_PARA(param, alpha) do {	\
+	TRAS_CHECK_PARAM(param);		\
+	TRAS_CHECK_ALPHA(alpha);		\
+} while (0)
+
+#define	TRAS_CHECK_UPDATE(ctx, data, nbits) do {\
+	if ((ctx) == NULL || (data) == NULL)	\
+		return (EINVAL);		\
+	if ((ctx)->state != TRAS_STATE_INIT)	\
+		return (ENXIO);			\
+} while (0)
+
+#define	TRAS_CHECK_FINAL(ctx) do {		\
+	if ((ctx) == NULL)			\
+		return (EINVAL);		\
+	if ((ctx)->state != TRAS_STATE_INIT)	\
+		return (ENXIO);			\
+} while (0)
 
 /*
  * Version structure for algorithms.
