@@ -2,6 +2,7 @@ CFLAGS=	-g
 CFLAGS+=-I${CURDIR}
 CFLAGS+=-I${CURDIR}/../include/
 CFLAGS+=-I${CURDIR}/../utils/
+CFLAGS+=-I${CURDIR}/../math/
 CFLAGS+=-I${CURDIR}/../frequency/
 CFLAGS+=-I${CURDIR}/../approxe/
 CFLAGS+=-I${CURDIR}/../sphere3d/
@@ -17,10 +18,12 @@ CFLAGS+=-I${CURDIR}/../runs/
 CFLAGS+=-I${CURDIR}/../cusum/
 CFLAGS+=-I${CURDIR}/../excursionv/
 CFLAGS+=-I${CURDIR}/../maurer/
-
+CFLAGS+=-I${CURDIR}/../bspace/
+CFLAGS+=-I${CURDIR}/../craps/
 
 VPATH+=${CURDIR}/../utils/
 VPATH+=${CURDIR}/../tras/
+VPATH+=${CURDIR}/../math/
 VPATH+=${CURDIR}/../frequency/
 VPATH+=${CURDIR}/../sphere3d/
 VPATH+=${CURDIR}/../mindist/
@@ -36,6 +39,8 @@ VPATH+=${CURDIR}/../runs/
 VPATH+=${CURDIR}/../cusum/
 VPATH+=${CURDIR}/../excursionv/
 VPATH+=${CURDIR}/../maurer/
+VPATH+=${CURDIR}/../bspace/
+VPATH+=${CURDIR}/../craps/
 
 LDFLAGS=-lm
 
@@ -43,7 +48,7 @@ all: test
 
 test: test.o hamming8.o utils.o tras.o frequency.o runs.o blkfreq.o sphere3d.o \
       mindist.o plot.o squeeze.o approxe.o sparse.o opso.o dna.o bstream.o \
-      cusum.o excursionv.o maurer.o
+      cusum.o excursionv.o maurer.o bspace.o craps.o lentz_gamma.o
 	${CC} $^ ${LDFLAGS} -o test
 
 %.o: %.c

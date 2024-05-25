@@ -57,7 +57,7 @@ struct frequency_params frequency_params = {
 };
 
 struct approxe_params approxe_params = {
-	.m = 8,
+	.m = 3,
 	.alpha = 0.05,
 };
 
@@ -162,6 +162,22 @@ struct excursionv_params excursionv_params = {
 	.alpha = 0.01,
 };
 
+struct bspace_params bspace_params = {
+	.b = 0,			/* for test purpose only */
+	.m = 512,		/* 2 ^ 9 */
+	.q = 24,		/* 24 least significance bits */
+	.n = 16 * 1024 * 1024,	/* 2 ^ 24 */
+	.nk = 0,		/* ??? */
+	.alpha = 0.01,		/* significance level */
+};
+
+struct craps_params craps_params = {
+	.K = 200000,
+	.throws = 200000 * 100,
+	.alpha1 = 0.01,
+	.alpha2 = 0.01,
+};
+
 static const struct test_algo algo_list[] = {
 	{ "frequency", &frequency_algo, &frequency_params, 0 },
 	{ "sphere3d", &sphere3d_algo, &sphere3d_params, 0 },
@@ -185,9 +201,9 @@ static const struct test_algo algo_list[] = {
 	{ "bkampmassey", NULL, NULL },
 	{ "bmatrix", NULL, NULL },
 	{ "brank32", NULL, NULL },
-	{ "bspace", NULL, NULL },
+	{ "bspace", &bspace_algo, &bspace_params },
 	{ "c1tsbits", NULL, NULL },
-	{ "craps", NULL, NULL },
+	{ "craps", &craps_algo, &craps_params },
 	{ "sparse_opso", &sparse_algo, &sparse_params_opso },
 	{ "sparse_otso", &sparse_algo, &sparse_params_otso },
 	{ "sparse_oqso", &sparse_algo, &sparse_params_oqso },
@@ -303,7 +319,7 @@ test_cmd_test(void)
 		snprintf(idstr, sizeof(idstr), "%s test #%d", algo->name, id);
 
 		printf("%-28s: pvalue = %.*f%-8s stats1 = %.*f%-8s %s\n", idstr,
-		    8, ctx.result.pvalue1, "\t", 8, ctx.result.stats2, "\t",
+		    8, ctx.result.pvalue1, "\t", 8, ctx.result.stats1, "\t",
 			(ctx.result.status == TRAS_TEST_PASSED) ? "success" : "failed");
 		error = algo->restart(&ctx, test_desc->params);
 		if (error != 0) {
