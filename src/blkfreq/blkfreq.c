@@ -28,6 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * The frequency test within a block.
  */
 
 #include <stdint.h>
@@ -37,11 +38,13 @@
 
 #include <tras.h>
 #include <utils.h>
+#include <cdefs.h>
 #include <frequency.h>
 #include <blkfreq.h>
 
-#define	min(a, b)	(((a) < (b)) ? (a) : (b))
-
+/*
+ * The test context structure.
+ */
 struct blkfreq_ctx {
 	unsigned int	sum;	/* partial sum of ones */
 	unsigned int	nbits;	/* total number of bits updated */
@@ -51,6 +54,9 @@ struct blkfreq_ctx {
 	double		alpha;	/* significance level from params */
 };
 
+/*
+ * The function to check if the test can be finalized.
+ */
 static int
 blkfreq_allow_final(struct blkfreq_ctx *c)
 {
@@ -63,6 +69,9 @@ blkfreq_allow_final(struct blkfreq_ctx *c)
 	return (1);
 }
 
+/*
+ * The test initialization methods with parameters.
+ */
 int
 blkfreq_init(struct tras_ctx *ctx, void *params)
 {
@@ -97,6 +106,9 @@ blkfreq_init(struct tras_ctx *ctx, void *params)
 	return (0);
 }
 
+/*
+ * The function to do the test partially with data update.
+ */
 int
 blkfreq_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
@@ -178,6 +190,8 @@ blkfreq_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = c->nbits % c->m;
+	ctx->result.stats1 = c->stats;
+	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0.0;
 
