@@ -63,12 +63,8 @@ fourier_init(struct tras_ctx *ctx, void *params)
 	struct fourier_params *p = params;
 	struct fourier_ctx *c;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
 
 	if (ctx == NULL || params != NULL)
 		return (EINVAL);
@@ -92,10 +88,7 @@ fourier_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct fourier_ctx *c;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	c = ctx->context;
 
@@ -114,10 +107,7 @@ fourier_final(struct tras_ctx *ctx)
 	double t, n0, n1, d;
 	double pvalue;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 	if (c->nbits < FOURIER_MIN_BITS)
@@ -131,7 +121,7 @@ fourier_final(struct tras_ctx *ctx)
 	/* todo: compute T = sqrt(log(1/0.05) *n) */
 
 	n = c->nbits;
-	t = sqrt(log(1.0/0.05) * (double)n);
+	t = sqrt(log(1.0 / 0.05) * (double)n);
 	d = (n1 - n0) / sqrt(0.95 * (double)n * 0.5 / 4);
 
 	n0 = 0.95 * (double)n / 2.0;
@@ -145,6 +135,8 @@ fourier_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = 0;
+	ctx->result.stats1 = 0.0;
+	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0.0;
 
