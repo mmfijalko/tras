@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef	__ALGOS_H__
+#define	__ALGOS_H__
+
 #include <frequency.h>
 #include <blkfreq.h>
 #include <runs.h>
@@ -44,3 +47,7 @@
 #include <cusum.h>
 #include <excursionv.h>
 #include <maurer.h>
+#include <bspace.h>
+#include <craps.h>
+
+#endif
