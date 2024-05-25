@@ -37,11 +37,15 @@
 #include <math.h>
 
 #include <tras.h>
-#include <hamming8.h>
+#include <cdefs.h>
 #include <utils.h>
 #include <bits.h>
+#include <hamming8.h>
 #include <frequency.h>
 
+/*
+ * The generic frequency test context.
+ */
 struct frequency_ctx {
 	unsigned int	sum;		/* number of ones */
 	unsigned int	nbits;		/* number of bits updated */
@@ -53,6 +57,9 @@ struct frequency_ctx {
 #define	FREQUENCY_ID_FIPS_140_1		1
 #define	FREQUENCY_ID_FIPS_140_2		2
 
+/*
+ * Calculate number of bits set in the sequence of bits.
+ */
 unsigned int
 frequency_sum1(void *data, unsigned int nbits)
 {
@@ -71,8 +78,10 @@ frequency_sum1(void *data, unsigned int nbits)
 	return (sum);
 }
 
-#define	min(a, b) (((a) < (b)) ? (a) : (b))
-
+/*
+ * The function unused because of very poor performance. It is about ~15 times
+ * slower than frequency_sum1.
+ */
 unsigned int
 frequency_sum2(void *data, unsigned int nbits)
 {
@@ -95,7 +104,10 @@ frequency_sum2(void *data, unsigned int nbits)
 }
 
 /*
- * XXX: invalid result for this function !!!!
+ * Calculate sum of bits using bitcount macro for 32-bits words. The remainder
+ * must be calculated using bytes from the table to avoid endianess problem.
+ * The function performes a little better than frequency_sum1 and this can be
+ * shown by iterating over large number of sequences and using ministat tool.
  */
 unsigned int
 frequency_sum3(void *data, unsigned int nbits)
@@ -201,7 +213,7 @@ frequency_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 		return (ENXIO);
 
 	c = ctx->context;
-	c->sum += frequency_sum1(data, nbits);
+	c->sum += frequency_sum3(data, nbits);
 	c->nbits += nbits;
 
 	return (0);
@@ -236,6 +248,8 @@ frequency_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = 0;
+	ctx->result.stats1 = sum;
+	ctx->result.stats2 = sobs;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0;
 
