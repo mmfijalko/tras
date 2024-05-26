@@ -43,8 +43,9 @@ typedef	double (*coef_fun_t)(struct universal_ctx *);
 struct universal_ctx {
 	uint32_t	block;		/* to store not full block */
 	unsigned int	L;		/* the length of each block */
-	unsigned int	Q;		/* the number of init block */
-	unsigned int 	K;		/* number of L-blocks processed */
+	unsigned int	Q;		/* the number of init blocks */
+	unsigned int	K;		/* the number of test blocks */
+	unsigned int	iblk;		/* number of blocks updated */
 	unsigned int *	lblks;		/* last occurence of L-blocks */
 	double		stats;		/* statistic sum of log distance */
 	coef_fun_t	coeff;		/* coeficient calculation function */

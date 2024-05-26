@@ -54,18 +54,14 @@ maurer_coef(struct universal_ctx *c)
 int
 maurer_init(struct tras_ctx *ctx, void *params)
 {
-	struct universal_params *p, pm;
+	struct universal_params p;
 
-	p = (struct universal_params *)params;
-	if (p == NULL)
-		return (EINVAL);
+	TRAS_CHECK_PARAM(params);
 
-	pm.L = p->L;
-	pm.Q = p->Q;
-	pm.coeff = maurer_coef;
-	pm.alpha = p->alpha;
+	memcpy(&p, params, sizeof(struct universal_params));
+	p.coeff = maurer_coef;
 
-	return (universal_init_algo(ctx, &pm, &universal_algo));
+	return (universal_init_algo(ctx, &p, &universal_algo));
 }
 
 int

@@ -126,9 +126,11 @@ universal_init_algo(struct tras_ctx *ctx, void *params,
 	c->lblks = (unsigned int *)(c + 1);
 	memset(c->lblks, 0, size);
 
-	c->K = 0;
+	c->block = 0;
 	c->L = p->L;
 	c->Q = 10 * (1UL << p->L);
+	c->K = 0;	/* TODO: temporary not calculated */
+	c->iblk = 0;
 	c->stats = 0.0;
 	c->coeff = p->coeff;
 	c->nbits = 0;
@@ -149,7 +151,7 @@ universal_init(struct tras_ctx *ctx, void *params)
 }
 
 inline static uint32_t
-universal_get_sequence_1(int offs, int nbits, uint8_t *data)
+universal_get_sequence_1(uint8_t *data, int offs, int nbits)
 {
 	uint32_t seq = 0;
 	uint8_t mask, b, *d;
@@ -193,13 +195,11 @@ universal_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct universal_ctx *c;
 	uint32_t block;
-	unsigned int i, n, m, offs;
+	unsigned int i, n, b, r;
 	uint8_t *p;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
 	if (nbits == 0)
 		return (0);
 
@@ -207,38 +207,44 @@ universal_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	p = (uint8_t *)data;
 
 	/* how long is stored subsequence */
-	m = c->nbits % c->L;
-	offs = 0;
-	if (m > 0) {
+	r = c->nbits % c->L;
+	n = 0;
+	if (r > 0) {
 		/* Get subsequence and try to append to not full block */
-		n = min(nbits, c->L - m);
-		block = universal_get_sequence_1(0, n, data);
+		n = min(nbits, c->L - r);
+		block = universal_get_sequence_1(data, 0, n);
 		block = (c->block << n) | block;
-		if ((m + n) < c->L) {
+		if ((r + n) < c->L) {
 			c->block = block;
 			c->nbits += nbits;
 			return (0);
 		}
 		/* Full block collected, do init or normal block table update */
-		if (c->K >= c->Q)
-			c->stats += log2(c->K + 1 - c->lblks[block]);
-		c->lblks[block] = ++c->K;
-		offs = n;
-	}
-	
-
-	/* Iterate over m full blocks */
-	m = (nbits - offs) / c->L;
-	for (i = 0; i < m; i++, offs += c->L) {
-		block = universal_get_sequence_1(offs, c->L, data);
-		if (c->K >= c->Q)
-			c->stats += log2(c->K + 1 - c->lblks[block]);
-		c->lblks[block] = ++c->K;
+		c->iblk++;
+		if (c->iblk > c->Q)
+			c->stats += log2(c->iblk - c->lblks[block]);
+		c->lblks[block] = c->iblk;
+		c->block = 0;
 	}
 
-	/* Store subsequence shorter than L */
-	if (offs < nbits)
-		c->block = universal_get_sequence_1(offs, (nbits - offs), data);
+	/*
+	 * Iterate over m buff blocks.
+	 */
+	b = (nbits - n) / c->L;
+	for (i = 0; i < b; i++, n += c->L) {
+		block = universal_get_sequence_1(data, n, c->L);
+		c->iblk++;
+		if (c->iblk > c->Q)
+			c->stats += log2(c->iblk - c->lblks[block]);
+		c->lblks[block] = c->iblk;
+	}
+
+	/*
+	 * Store the subsequence shorter than L.
+	 */
+	r = nbits - n;
+	if (r > 0)
+		c->block = universal_get_sequence_1(data, n, r);
 
 	c->nbits += nbits;
 
@@ -266,9 +272,11 @@ universal_final(struct tras_ctx *ctx)
 	if (!universal_allow_final(c))
 		return (EALREADY);
 
+	c->K = c->nbits / c->L - c->Q;
+
 	coeff = c->coeff(c);
 
-	stats = c->stats / (double)(c->K - c->Q);
+	stats = c->stats / (double)(c->iblk - c->Q);
 	stdev = coeff * sqrt(universal_stats[c->L].variance / c->K);
 	stats = fabs(stats - universal_stats[c->L].expected) / (SQRT_2 * stdev);
 	pvalue = erfc(stats);
@@ -278,7 +286,7 @@ universal_final(struct tras_ctx *ctx)
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.discard = 0;
+	ctx->result.discard = c->nbits - (c->K + c->Q) * c->L;
 	ctx->result.stats1 = stats;
 	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;

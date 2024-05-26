@@ -33,6 +33,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <stddef.h>
+#include <string.h>
 #include <math.h>
 
 #include <tras.h>
@@ -50,19 +51,14 @@ coron_coef(struct universal_ctx *c)
 int
 coron_init(struct tras_ctx *ctx, void *params)
 {
-	struct universal_params *p, pm;
+	struct universal_params p;
 
-	if (params == NULL)
-		return (EINVAL);
+	TRAS_CHECK_PARAM(params);
 
-	p = (struct universal_params *)params;
+	memcpy(&p, params, sizeof(struct universal_params));
+	p.coeff = coron_coef;
 
-	pm.L = p->L;
-	pm.Q = p->Q;
-	pm.coeff = coron_coef;
-	pm.alpha = p->alpha;
-
-	return (universal_init_algo(ctx, &pm, &coron_algo));
+	return (universal_init_algo(ctx, &p, &coron_algo));
 }
 
 int
