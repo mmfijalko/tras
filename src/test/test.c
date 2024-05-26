@@ -153,6 +153,12 @@ struct universal_params maurer_params = {
 	.Q = 10 * (1 << 6),
 };
 
+struct universal_params coron_params = {
+	.alpha = 0.01,
+	.L = 6,
+	.Q = 10 * (1 << 6),
+};
+
 struct cusum_params cusum_params = {
 	.mode = CUSUM_MODE_FORWARD,
 	.alpha = 0.01,
@@ -192,6 +198,7 @@ static const struct test_algo algo_list[] = {
 	{ "fourier", NULL, NULL },
 	{ "lcomplex", NULL, NULL},
 	{ "maurer", &maurer_algo, &maurer_params },
+	{ "coron", &coron_algo, &coron_params },
 	{ "ntmatch", NULL, NULL },
 	{ "otmatch", NULL, NULL },
 	{ "plot", &plot_algo, &plot_params },
