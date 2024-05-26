@@ -30,85 +30,43 @@
  *
  */
 
-#include <stdint.h>
-#include <errno.h>
-#include <stddef.h>
-#include <math.h>
+#ifndef __TRAS_UNIVERSAL_H__
+#define	__TRAS_UNIVERSAL_H__
 
-#include <tras.h>
-#include <universal.h>
-#include <coron.h>
+struct universal_ctx;
 
-static double
-coron_coef(struct universal_ctx *c)
-{
+typedef	double (*coef_fun_t)(struct universal_ctx *);
 
-	return (0.7 - 0.8 / c->L + (1.6 + 12.8 / c->L) *
-	    pow(c->K, -4.0 / c->L));
-}
-
-int
-coron_init(struct tras_ctx *ctx, void *params)
-{
-	struct universal_params *p, pm;
-
-	if (params == NULL)
-		return (EINVAL);
-
-	p = (struct universal_params *)params;
-
-	pm.L = p->L;
-	pm.Q = p->Q;
-	pm.coeff = coron_coef;
-	pm.alpha = p->alpha;
-
-	return (universal_init_algo(ctx, &pm, &coron_algo));
-}
-
-int
-coron_final(struct tras_ctx *ctx)
-{
-
-	return (universal_final(ctx));
-}
-
-int
-coron_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
-{
-
-	return (universal_update(ctx, data, nbits));
-}
-
-int
-coron_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
-{
-
-	return (universal_test(ctx, data, nbits));
-}
-
-int
-coron_restart(struct tras_ctx *ctx, void *params)
-{
-
-	return (universal_restart(ctx, params));
-}
-
-int
-coron_free(struct tras_ctx *ctx)
-{
-
-	return (universal_free(ctx));
-}
-
-const struct tras_algo coron_algo = {
-	.name =		"Coron",
-	.desc =		"Maurer Test with Coron Correction",
-	.id =		UNIVERSAL_ID_CORON,
-	.version = 	{ 0, 1, 1 },
-	.init =		coron_init,
-	.update =	coron_update,
-	.test =		coron_test,
-	.final =	coron_final,
-	.restart =	coron_restart,
-	.free =		coron_free,
+/*
+ * The private context for Universal Statistical Test (Maurer, Coron).
+ */
+struct universal_ctx {
+	uint32_t	block;		/* to store not full block */
+	unsigned int	L;		/* the length of each block */
+	unsigned int	Q;		/* the number of init block */
+	unsigned int 	K;		/* number of L-blocks processed */
+	unsigned int *	lblks;		/* last occurence of L-blocks */
+	double		stats;		/* statistic sum of log distance */
+	coef_fun_t	coeff;		/* coeficient calculation function */
+	unsigned int	nbits;		/* number of bits processed */
+	double		alpha;		/* significance level */
 };
+
+#define	UNIVERSAL_ID_MAURER	0
+#define	UNIVERSAL_ID_CORON	1
+
+struct universal_params {
+	unsigned int		L;
+	unsigned int		Q;
+	coef_fun_t		coeff;
+	double			alpha;
+};
+
+#define	UNIVERSAL_MIN_L		6
+#define	UNIVERSAL_MAX_L		16
+
+TRAS_DECLARE_ALGO(universal);
+
+int universal_init_algo(struct tras_ctx *, void *, const struct tras_algo *);
+
+#endif

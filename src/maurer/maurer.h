@@ -33,6 +33,7 @@
 #ifndef __TRAS_MAURER_H__
 #define	__TRAS_MAURER_H__
 
+#if 0
 /*
  * The private context for Universal Statistical test (Maurer, Coron).
  */
@@ -58,9 +59,12 @@ struct universal_params {
 
 #define	UNIVERSAL_MIN_L		6
 #define	UNIVERSAL_MAX_L		16
+#endif
 
 TRAS_DECLARE_ALGO(maurer);
 
-int maurer_init_algo(struct tras_ctx *, void *, const struct tras_algo *);
+// int maurer_init_algo(struct tras_ctx *, void *, const struct tras_algo *);
+double
+maurer_coef(struct universal_ctx *c);
 
 #endif

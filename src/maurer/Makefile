@@ -11,7 +11,7 @@ VPATH+=${CURDIR}/../tras/
 
 LDFLAGS=-lm
 
-all: maurer.o coron.o utils.o tras.o
+all: universal.o maurer.o coron.o utils.o tras.o
 	
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@
