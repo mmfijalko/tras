@@ -66,12 +66,8 @@ dna_init(struct tras_ctx *ctx, void *params)
 	struct dna_params *p = params;
 	int size;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
 
 	size = sizeof(struct dna_ctx) + DNA_WORDS / 8;
 
@@ -101,10 +97,8 @@ dna_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	uint32_t *strokes, word;
 	unsigned int n, i, k;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
 	if (nbits & 0x1f)
 		return (EINVAL);
 	if (nbits == 0)
@@ -155,11 +149,10 @@ dna_final(struct tras_ctx *ctx)
 	struct dna_ctx *c;
 	double pvalue, s;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
+
 	c = ctx->context;
+
 	if (c->nbits < DNA_MIN_BITS)
 		return (EALREADY);
 
@@ -173,6 +166,8 @@ dna_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = c->nbits - DNA_BITS;
+	ctx->result.stats1 = (double)c->sparse;
+	ctx->result.stats2 = s;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0;
 
