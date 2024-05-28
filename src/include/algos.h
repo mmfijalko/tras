@@ -45,9 +45,13 @@
 #include <dna.h>
 #include <bstream.h>
 #include <cusum.h>
+#include <excursion.h>
 #include <excursionv.h>
+#include <universal.h>
 #include <maurer.h>
+#include <coron.h>
 #include <bspace.h>
 #include <craps.h>
+#include <chi2.h>
 
 #endif
