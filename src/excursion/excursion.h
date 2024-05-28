@@ -37,7 +37,7 @@
  * Param structure for random walk excursion test.
  */
 struct excursion_params {
-	double	alpha;		/* only significance level */
+	double	alpha;		/* significance level for H0 */
 };
 
 #define	EXCURSION_MIN_BITS	1000000
