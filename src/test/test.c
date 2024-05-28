@@ -164,6 +164,10 @@ struct cusum_params cusum_params = {
 	.alpha = 0.01,
 };
 
+struct excursion_params excursion_params = {
+	.alpha = 0.01,
+};
+
 struct excursionv_params excursionv_params = {
 	.alpha = 0.01,
 };
@@ -194,7 +198,6 @@ static const struct test_algo algo_list[] = {
 	{ "bstream", &bstream_algo, &bstream_params },
 	{ "c1tssbytes", NULL, NULL },
 	{ "cusum", &cusum_algo, &cusum_params },
-	{ "excursion", NULL, NULL },
 	{ "fourier", NULL, NULL },
 	{ "lcomplex", NULL, NULL},
 	{ "maurer", &maurer_algo, &maurer_params },
@@ -218,6 +221,7 @@ static const struct test_algo algo_list[] = {
 	{ "opso", &opso_algo, &opso_params },
 	{ "dna", &dna_algo, &dna_params },
 	{ "dna_sparse", &dna_sparse_algo, NULL },
+	{ "excursion", &excursion_algo, &excursion_params },
 	{ "excursionv", &excursionv_algo, &excursionv_params },
 	{ "kstest", NULL, NULL },
 	{ "mindist", &mindist_algo, &mindist_params },
