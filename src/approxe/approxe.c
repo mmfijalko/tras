@@ -63,14 +63,11 @@ approxe_init(struct tras_ctx *ctx, void *params)
 	struct approxe_params *p = params;
 	unsigned int n, i;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
+
 	if (p->m < APPROXE_MIN_M || p->m > APPROXE_MAX_M)
 		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
 
 	n = (unsigned int)(pow(2.0, p->m));
 
@@ -90,9 +87,8 @@ approxe_init(struct tras_ctx *ctx, void *params)
 
 	c->first = 0;
 	c->block = 0;
-
-	c->nbits = 0;
 	c->m = p->m;
+	c->nbits = 0;
 	c->alpha = p->alpha;
 
 	ctx->context = c;
@@ -153,10 +149,8 @@ approxe_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	uint32_t block;
 	uint8_t *p;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
 	if (nbits == 0)
 		return (0);
 
@@ -200,24 +194,6 @@ approxe_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (0);
 }
 
-static int
-approxe_allow_final(struct tras_ctx *ctx)
-{
-	struct approxe_ctx *c;
-
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
-
-	c = ctx->context;
-
-	if (c->nbits == 0 || (c->m >= (log2(c->nbits) - 5)))
-		return (EALREADY);
-
-	return (0);
-}
-
 int
 approxe_final(struct tras_ctx *ctx)
 {
@@ -227,11 +203,12 @@ approxe_final(struct tras_ctx *ctx)
 	uint8_t d[4];
 	int error;
 
-	error = approxe_allow_final(ctx);
-	if (error != 0)
-		return (error);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
+
+	if (c->nbits == 0 || (c->m >= (log2(c->nbits) - 5)))
+		return (EALREADY);
 
 	d[0] = (c->first >> 24) & 0xff;
 	d[1] = (c->first >> 16) & 0xff;

@@ -93,12 +93,8 @@ c1tsbits_init(struct tras_ctx *ctx, void *params)
 	struct c1tsbits_ctx *c;
 	int i;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
 
 	c = malloc(sizeof(struct c1tsbits_ctx));
 	if (c == NULL) {
@@ -106,10 +102,11 @@ c1tsbits_init(struct tras_ctx *ctx, void *params)
 		return (ENOMEM);
 	}
 
-	c->nbits = 0;
 	c->last = 0;
 	for (i = 0; i < 5; i++)
 		c->freq[i] = 0;
+
+	c->nbits = 0;
 	c->alpha = p->alpha;
 
 	ctx->context = c;
@@ -167,10 +164,7 @@ c1tsbits_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	uint8_t *p, h, b;
 	unsigned int i, n, r, offs;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	c = ctx->context;
 	p = (uint8_t *)data;
@@ -225,10 +219,7 @@ c1tsbits_final(struct tras_ctx *ctx)
 	double pvalue, sobs;
 	int sum;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 
@@ -244,6 +235,8 @@ c1tsbits_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = c->nbits & 0x07;
+	ctx->result.stats1 = 0.0;
+	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0;
 

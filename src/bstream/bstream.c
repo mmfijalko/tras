@@ -68,8 +68,8 @@ bstream_init(struct tras_ctx *ctx, void *params)
 	struct sparse_params sp;
 	int error;
 
-	if (params == NULL)
-		return (EINVAL);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
 
 	memcpy(&sp, &bstream_params, sizeof(struct sparse_params));
 	sp.alpha = p->alpha;
@@ -91,10 +91,7 @@ bstream_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	uint32_t word, mask, wpos;
 	uint8_t *bytes = (uint8_t *)data;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	c = ctx->context;
 

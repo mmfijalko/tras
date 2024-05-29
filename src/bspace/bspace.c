@@ -171,12 +171,9 @@ bspace_init(struct tras_ctx *ctx, void *params)
 	struct bspace_ctx *c;
 	struct bspace_params *p = params;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
+
 	if (p->n != (1 << p->q))
 		return (EINVAL);
 	if (p->b < BSPACE_MIN_BIT_OFFSET || p->b > BSPACE_MAX_BIT_OFFSET)
@@ -198,13 +195,15 @@ bspace_init(struct tras_ctx *ctx, void *params)
 
 	/* todo: other initializations when defined */
 
-	c->nbits = 0;
 	c->s = 7 - p->b;
 	c->m = p->m;
 	c->q = p->q;
 	c->n = p->n;
 	c->nk = p->nk;
 	memset(c->K, 0, c->nk * sizeof(unsigned int));
+
+	c->nbits = 0;
+	c->alpha = p->alpha;
 
 	ctx->context = c;
 	ctx->algo = &bspace_algo;
@@ -220,10 +219,8 @@ bspace_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	unsigned int r, b, s, n, i;
 	uint32_t *p;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
 	if (nbits & 0x1f)
 		return (EINVAL);
 
@@ -254,10 +251,7 @@ bspace_final(struct tras_ctx *ctx)
 int j;
 uint32_t *t;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 

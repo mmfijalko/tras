@@ -76,16 +76,17 @@ bmatrix_init(struct tras_ctx *ctx, void *params)
 	struct bmatrix_ctx *c;
 	struct bmatrix_params *p = params;
 
-	if (ctx == NULL || params == NULL)
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
+
+	if (p->m < BMATRIX_MIN_M || p->q < BMATRIX_MIN_Q)
+		return (EINVAL);
+	if (p->m > BMATRIX_MAX_M || p->q > BMATRIX_MAX_Q)
 		return (EINVAL);
 
 	c = malloc(sizeof(struct bmatrix_ctx));
 	if (c == NULL)
 		return (ENOMEM);
-	if (p->m < BMATRIX_MIN_M || p->q < BMATRIX_MIN_Q)
-		return (EINVAL);
-	if (p->m > BMATRIX_MAX_M || p->q > BMATRIX_MAX_Q)
-		return (EINVAL);
 
 	c->nbits = 0;
 	c->nmatx = 0;
@@ -104,16 +105,15 @@ bmatrix_init(struct tras_ctx *ctx, void *params)
 }
 
 int
-bmatrix_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+bmatrix_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	/* todo: */
-	return (0);
+	/*
+	 * todo: implementation.
+	 */
+	return (ENOSYS);
 }
 
 int
@@ -124,10 +124,7 @@ bmatrix_final(struct tras_ctx *ctx)
 	double diffn, expt0, expt1, exptn;
 	double fmn, chi2, pvalue;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 
@@ -155,6 +152,8 @@ bmatrix_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = c->nbits % c->mq;
+	ctx->result.stats1 = chi2;
+	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0;
 

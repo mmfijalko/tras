@@ -57,12 +57,8 @@ brank31_init(struct tras_ctx *ctx, void *params)
 	struct brank31_ctx *c;
 	struct brank31_params *p = params;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
 
 	c = malloc(sizeof(struct brank31_ctx));
 	if (c == NULL) {
@@ -70,9 +66,12 @@ brank31_init(struct tras_ctx *ctx, void *params)
 		return (ENOMEM);
 	}
 
-	/* todo: other initializations when defined */
+	/*
+	 * todo: other initializations when defined.
+	 */
 
 	c->nbits = 0;
+	c->alpha = p->alpha;
 
 	ctx->context = c;
 	ctx->algo = &brank31_algo;
@@ -86,20 +85,16 @@ brank31_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct brank31_ctx *c;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	c = ctx->context;
 
 	(void)c;
 
-	/* todo: implementation */
-
-	c->nbits += nbits;
-
-	return (0);
+	/*
+	 * TODO: implementation.
+	 */
+	return (ENOSYS);
 }
 
 int
@@ -109,10 +104,7 @@ brank31_final(struct tras_ctx *ctx)
 	double pvalue, sobs;
 	int sum;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 

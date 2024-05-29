@@ -106,10 +106,11 @@ craps_init(struct tras_ctx *ctx, void *params)
 	c->next = 0;
 	c->toss = 0;
 	c->games = 0;
+	c->throws = p->throws;
+
+	c->nbits = 0;
 	c->alpha1 = p->alpha1;
 	c->alpha2 = p->alpha2;
-	c->throws = p->throws;
-	c->nbits = 0;
 
 	ctx->context = c;
 	ctx->algo = &craps_algo;

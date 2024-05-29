@@ -55,21 +55,6 @@ struct blkfreq_ctx {
 };
 
 /*
- * The function to check if the test can be finalized.
- */
-static int
-blkfreq_allow_final(struct blkfreq_ctx *c)
-{
-
-	if (c->nbits < BLKFREQ_MIN_N)
-		return (0);
-	if (c->nbits < c->m * 100)
-		return (0);
-
-	return (1);
-}
-
-/*
  * The test initialization methods with parameters.
  */
 int
@@ -78,12 +63,9 @@ blkfreq_init(struct tras_ctx *ctx, void *params)
 	struct blkfreq_params *p = params;
 	struct blkfreq_ctx *c;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
+
 	if (p->m < BLKFREQ_MIN_M)
 		return (EINVAL);
 
@@ -116,10 +98,7 @@ blkfreq_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	unsigned int i, k, n, nb, offs;
 	double pii;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	c = ctx->context;
 	n = c->nbits;
@@ -169,14 +148,11 @@ blkfreq_final(struct tras_ctx *ctx)
 	struct blkfreq_ctx *c;
 	double pvalue;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 
-	if (!blkfreq_allow_final(c))
+	if (c->nbits < BLKFREQ_MIN_N ||	c->nbits < c->m * 100)
 		return (EALREADY);
 
 	c->stats = 4 * c->m * c->stats;
