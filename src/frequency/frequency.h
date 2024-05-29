@@ -37,7 +37,9 @@
  * Parameter structure for the frequency test, only alpha.
  */
 struct frequency_params {
-	double	alpha;	/* significance level for H0 */
+	unsigned int	minbits;	/* minimum number of bits */
+	unsigned int	maxbits;	/* maximum number of bits */
+	double		alpha;		/* significance level for H0 */
 };
 
 #define	FREQUENCY_MIN_BITS	100	/* minimum number of bits */

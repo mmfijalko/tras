@@ -49,6 +49,8 @@
 struct frequency_ctx {
 	unsigned int	sum;		/* number of ones */
 	unsigned int	nbits;		/* number of bits updated */
+	unsigned int	minbits;	/* mimimum number of bits */
+	unsigned int	maxbits;	/* maximum number of bits */
 	unsigned int	discard;	/* number of bits discarded */
 	double		alpha;		/* significance level if any */
 };
@@ -170,12 +172,8 @@ frequency_init_algo(struct tras_ctx *ctx, void *params,
 	size_t size;
 	int error;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
 
 	c = malloc(sizeof(struct frequency_ctx));
 	if (c == NULL) {
@@ -183,10 +181,10 @@ frequency_init_algo(struct tras_ctx *ctx, void *params,
 		return (ENOMEM);
 	}
 
-	c->nbits = 0;
-	c->discard = 0;
-	c->alpha = p->alpha;
 	c->sum = 0;
+	c->discard = 0;
+	c->nbits = 0;
+	c->alpha = p->alpha;
 
 	ctx->context = c;
 	ctx->algo = algo;
@@ -207,10 +205,7 @@ frequency_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct frequency_ctx *c;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	c = ctx->context;
 	c->sum += frequency_sum3(data, nbits);
@@ -226,10 +221,7 @@ frequency_final(struct tras_ctx *ctx)
 	double pvalue, sobs;
 	int sum;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 
@@ -301,10 +293,7 @@ frequency_fips_140_init_algo(struct tras_ctx *ctx, void *params,
 	size_t size;
 	int error;
 
-	if (ctx == NULL || params != NULL)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
 
 	c = malloc(sizeof(struct frequency_ctx));
 	if (c == NULL) {
@@ -312,10 +301,10 @@ frequency_fips_140_init_algo(struct tras_ctx *ctx, void *params,
 		return (ENOMEM);
 	}
 
-	c->nbits = 0;
+	c->sum = 0;
 	c->discard = 0;
 	c->alpha = 0.0;
-	c->sum = 0;
+	c->nbits = 0.0;
 	
 	ctx->context = c;
 	ctx->algo = algo;
@@ -330,10 +319,7 @@ frequency_fips_140_final(struct tras_ctx *ctx, unsigned int minsum,
 {
 	struct frequency_ctx *c;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 
