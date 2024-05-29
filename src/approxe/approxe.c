@@ -42,6 +42,9 @@
 #include <cdefs.h>
 #include <const.h>
 #include <approxe.h>
+#include <lentz_gamma.h>
+
+#include <stdio.h>
 
 struct approxe_ctx {
 	unsigned int 	nbits;	/* number of bits processed */
@@ -176,7 +179,7 @@ approxe_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 		offs = n;
 	}
 
-	n = c->nbits - offs;
+	n = nbits - offs;
 
 	/*
 	 * update frequency table for sequence with m bits length.
@@ -197,18 +200,36 @@ approxe_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (0);
 }
 
-int
-approxe_final(struct tras_ctx *ctx)
+static int
+approxe_allow_final(struct tras_ctx *ctx)
 {
 	struct approxe_ctx *c;
-	double pvalue, phim0, phim1, stats;
-	unsigned int i, n, *freq;
-	uint8_t d[4];
 
 	if (ctx == NULL)
 		return (EINVAL);
 	if (ctx->state != TRAS_STATE_INIT)
 		return (ENXIO);
+
+	c = ctx->context;
+
+	if (c->nbits == 0 || (c->m >= (log2(c->nbits) - 5)))
+		return (EALREADY);
+
+	return (0);
+}
+
+int
+approxe_final(struct tras_ctx *ctx)
+{
+	struct approxe_ctx *c;
+	double pvalue, phim0, phim1, stats, *freq;
+	unsigned int i, n, k;
+	uint8_t d[4];
+	int error;
+
+	error = approxe_allow_final(ctx);
+	if (error != 0)
+		return (error);
 
 	c = ctx->context;
 
@@ -222,37 +243,48 @@ approxe_final(struct tras_ctx *ctx)
 	approxe_update_sequence(d, n, c->m - 1, c->m, c->block, c->freq0);
 	approxe_update_sequence(d, n, c->m - 1, c->m + 1, c->block, c->freq1);
 
-	n = (unsigned int)(pow(2.0, c->m));
+	k = 1 << c->m;
+	n = c->nbits;
 
-	freq = malloc(2 * sizeof(double) * n);
+	freq = malloc(2 * sizeof(double) * k);
 	if (freq == NULL)
 		return (ENOMEM);
 
 	/* Calculate relative frequencies for m */ 
-	for (i = 0; i < n; i++) {
-		freq[i] = ((double)c->freq0[i]) / n;
+	for (i = 0; i < k; i++) {
+		freq[i] = ((double)c->freq0[i]) / (double)n;
 	}
 	/* Calculate phi value for m */
-	for (i = 0, phim0 = 0.0; i < n; i++) {
-		phim0 += freq[i] * log(freq[i]);
+	for (i = 0, phim0 = 0.0; i < k; i++) {
+		if (c->freq0[i] != 0)
+			phim0 += freq[i] * log(freq[i]);
 	}
 	/* Calculate relative frequencies for m + 1 */
-	for (i = 0, n = n * 2, phim1 = 0.0; i < n; i++) {
-		freq[i] = ((double)c->freq1[i]) / n;
+	for (i = 0, k = k * 2, phim1 = 0.0; i < k; i++) {
+		freq[i] = ((double)c->freq1[i]) / (double)n;
 	}
 	/* Calculate phi value for m + 1 */
-	for (i = 0, phim1 = 0.0; i < n; i++) {
-		phim1 += freq[i] * log(freq[i]);
+	for (i = 0, phim1 = 0.0; i < k; i++) {
+		if (c->freq1[i] != 0)
+			phim1 += freq[i] * log(freq[i]);
 	}
 
-	stats = 2 * (double)c->nbits * (log(2.0) - (phim0 - phim1));
+printf("%s: phim0 = %f\n", __func__, phim0);
+printf("%s: phim1 = %f\n", __func__, phim1);
+	stats = (double)n * (log(2.0) - (phim0 - phim1));
+
+printf("appen = %f, chi = %f\n", (phim0 - phim1), stats);
+printf("chi / 2 = %f\n", stats / 2.0);
 
 	/*
 	 * todo: finalization is not finished since we don't have
 	 * igammac implementation yet.
-	 * pvalue = igamc(2 ^ (m-1), chi2 / 2);
+	 * pvalue = igamc(2 ^ (m - 1), chi2 / 2);
 	 */
-	pvalue = 0;
+	pvalue = lentz2_gamma((double)(1 << (c->m - 1)), stats / 2.0, 10e-32, &error);
+printf("getting lentz gamma (%g, %g) = %.16g\n",
+    (double)(1 << (c->m - 1)), stats / 2.0, pvalue);
+	pvalue = pvalue / tgamma((double)(1 << (c->m - 1)));
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
