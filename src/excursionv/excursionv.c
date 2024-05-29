@@ -57,15 +57,11 @@ struct excursionv_ctx {
 int
 excursionv_init(struct tras_ctx *ctx, void *params)
 {
-	struct excursionv_ctx *c;
 	struct excursionv_params *p = params;
+	struct excursionv_ctx *c;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
 
 	c = malloc(sizeof(struct excursionv_ctx) + 18 *
 	    (sizeof(int) + sizeof(double)));
@@ -78,6 +74,7 @@ excursionv_init(struct tras_ctx *ctx, void *params)
 	c->pvalue = (double *)(c->counts + 18);
 	c->state = 0;
 	c->cycle = 0;
+	c->nbits = 0;
 	c->alpha = p->alpha;
 
 	ctx->context = c;
@@ -92,21 +89,19 @@ excursionv_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct excursionv_ctx *c;
 	uint8_t *p, mask;
-	unsigned int i, x, n;
+	unsigned int i, x, n, m;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	c = ctx->context;
-	p = (uint8_t *)data;
-	c->nbits += nbits;
 
-	while (nbits > 0) {
-		n = min(8, nbits);
+	p = (uint8_t *)data;
+	n = nbits;
+
+	while (n > 0) {
 		mask = 0x80;
-		while (mask != 0) {
+		m = min(8, n);
+		for (i = 0; i < m; i++, mask >>= 1) {
 			c->state += (*p & mask) ? 1 : -1;
 			if (c->state >= -9 && c->state <= 9) {
 				if (c->state != 0) {
@@ -117,11 +112,13 @@ excursionv_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 					c->cycle++;
 				}
 			}
-			mask = mask >> 1;
 		}
-		nbits -= n;
+		n = n - m;
 		p++;
 	}
+
+	c->nbits += nbits;
+
 	return (0);
 }
 
@@ -135,11 +132,10 @@ excursionv_final(struct tras_ctx *ctx)
 	double stats, pvmin, pvmax;
 	int i, x, fail;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
+
 	c = ctx->context;
+
 	if (c->nbits < EXCURSION_V_MIN_BITS)
 		return (EALREADY);
 
@@ -166,7 +162,7 @@ excursionv_final(struct tras_ctx *ctx)
 
 	ctx->result.discard = 0;
 	ctx->result.stats1 = (double)fail;
-	ctx->result.stats2 = 0.0;
+	ctx->result.stats2 = (double)c->cycle;
 	ctx->result.pvalue1 = pvmin;
 	ctx->result.pvalue2 = pvmax;
 
