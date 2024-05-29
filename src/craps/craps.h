@@ -33,17 +33,28 @@
 #ifndef __CRAPS_H__
 #define	__CRAPS_H__
 
+/*
+ * The craps test's 1st level parameters.
+ */
 struct craps_params {
-	unsigned int	K;	/* number of games */
-	double		alpha1;	/* alpha for 1st level test */
-	double		alpha2;	/* alpha for 2nd level test */
+	unsigned int	K;	/* number of games to complete test */
+	unsigned int	throws;	/* maximum number of throws, security */
+	double		alpha1;	/* significance level for wins test */
+	double		alpha2;	/* significance level for throws test */
 };
 
 /* The minimum number of games for final */
 #define	CRAPS_MIN_GAMES		200000
 
+/*
+ * There is no simple rule to determine maximum number of bits.
+ * The test can be infinte because we must toss the dice until
+ * win or loss. So, the test has the throws parameter to specifiy
+ * maximum number of tosses, when it should be broken.
+ */
+
 /* Number of bits to finalize the DNA test */
-#define	CRAPS_BITS	(DNA_LETTERS * 32)
+#define	CRAPS_BITS	(DNA_LETTERS1 * 32)
 
 #define	CRAPS_MIN_BITS	CRAPS_BITS	/* minimun number of bits for test */
 #define	CRAPS_MAX_BITS	CRAPS_BITS	/* maximum number of bits for test */

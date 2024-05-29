@@ -28,6 +28,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * The craps test.
+ *
  */
 
 #include <stdint.h>
@@ -42,21 +44,23 @@
 #include <bits.h>
 #include <craps.h>
 
+	#include <stdio.h>
+
 /*
  * The context for the Craps Test.
  */
 struct craps_ctx {
-	unsigned int	nbits;	/* number of bits processed */
 	unsigned int	freq[21];/* throws to win frequencies */
-	double		alpha;	/* significance level for H0 */
 	unsigned int	K;	/* number of repetition the game */
 	unsigned int	thrs;	/* number of throws */
 	unsigned int	wins;	/* number of wins */
 	unsigned int 	games;	/* number of games */
 	int		next;	/* game not finished */
 	unsigned int	toss;	/* last toss dice sum */
-	double		alpha1;	/* 1st level test alpha */
-	double		alpha2;	/* 2nd level test alpha */
+	double		alpha1;	/* significance level for wins test */
+	double		alpha2;	/* significance level for throws freq test */
+	unsigned int	throws;	/* security, maximum number of throws */
+	unsigned int	nbits;	/* number of bits updated */
 };
 
 /*
@@ -82,14 +86,10 @@ craps_init(struct tras_ctx *ctx, void *params)
 	struct craps_params *p = params;
 	int i;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha1 <= 0.0 || p->alpha1 >= 1.0)
-		return (EINVAL);
-	if (p->alpha2 <= 0.0 || p->alpha2 >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+
+	TRAS_CHECK_PARA(p, p->alpha1);
+	TRAS_CHECK_PARA(p, p->alpha2);
 
 	c = malloc(sizeof(struct craps_ctx));
 	if (c == NULL) {
@@ -97,9 +97,9 @@ craps_init(struct tras_ctx *ctx, void *params)
 		return (ENOMEM);
 	}
 
-	c->nbits = 0;
 	for (i = 0; i < 21; i++)
 		c->freq[i] = 0;
+
 	c->K = p->K;
 	c->thrs = 0;
 	c->wins = 0;
@@ -108,6 +108,8 @@ craps_init(struct tras_ctx *ctx, void *params)
 	c->games = 0;
 	c->alpha1 = p->alpha1;
 	c->alpha2 = p->alpha2;
+	c->throws = p->throws;
+	c->nbits = 0;
 
 	ctx->context = c;
 	ctx->algo = &craps_algo;
@@ -149,13 +151,10 @@ craps_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct craps_ctx *c;
 	unsigned int thrs, dice, next, toss;
-	unsigned int r, i, n, offs;
+	unsigned int r, i, n, offs, throws;
 	double u01;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	c = ctx->context;
 
@@ -164,12 +163,20 @@ craps_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 		return (0);
 	}
 
-	/* rest from previous update as two 32-bits numbers (two dices) */
+	/*
+	 * Support only updates with multiple of 64 bits.
+	 */
 	r = c->nbits & 0x3f;
-	if (r > 0 || (nbits & 0x3f)) {
-		/* Not supported scenario, yet */
+	if (r > 0 || (nbits & 0x3f))
 		return (ENOSYS);
-	}
+
+	/*
+	 * We use numbers of spots on the face of a die from 0 to 5 to
+	 * avoid adding one to random number. So, the result of of a toss
+	 * of two dice can vary from 0 to 10. (5 and 9 are for win;
+	 * 0, 1, 10 are for loss; continue when 5).
+	 */
+	throws = c->nbits >> 6;
 
 	n = nbits >> 6;
 	thrs = c->thrs;
@@ -178,7 +185,10 @@ craps_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	for (i = 0, offs = 0; i < n; i++, offs += 64) {
 		if (c->games >= c->K)
 			break;
+		if (throws >= c->throws)
+			break;
 		dice = craps_toss(data, offs);
+		throws++;
 		if (next) {
 			thrs = (thrs < 20) ? ++thrs : 20;
 			if (dice != 5 && (dice != toss))
@@ -196,8 +206,7 @@ craps_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 			toss = dice;
 			continue;
 		}
-		next = 0;
-		thrs = 0;
+		next = thrs = 0;
 		c->games++;
 	}
 	c->thrs = thrs;
@@ -214,28 +223,30 @@ craps_final(struct tras_ctx *ctx)
 {
 	struct craps_ctx *c;
 	double pvalue1, pvalue2, sobs;
-	double mean, var, p, s;
+	double mean, stdev, p, s;
 	int i, sum;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 
 	if (c->games < CRAPS_MIN_GAMES)
 		return (EALREADY);
+	if ((c->nbits >> 6) >= c->throws)
+		return (ENXIO);
+
+printf("%s: games = %u, wins = %u, ratio = %g, finished %s\n", __func__, c->games, c->wins,
+    (double)c->wins / (double)c->games,   c->next ? "yes" : "no");
 
 	p = 244.0 / 495.0;
 	mean = p * c->K;
-	var = p * (1.0 - p) * c->K;
+	stdev = mean * (1.0 - p);
 
-	s = ((double)c->wins - mean) / var;
-	pvalue1 = erfc(fabs(s) / sqrt(2.0));
-
-/* xxx: temporary 2nd level success */
-pvalue2 = 1.0;
+	s = ((double)c->wins - mean);
+	s = fabs(s) / sqrt((double)2.0) / stdev;
+	pvalue1 = erfc(s);
+	/* TODO: temporary */
+	pvalue2 = pvalue1;
 
 	if (pvalue1 < c->alpha1 || pvalue2 < c->alpha2)
 		ctx->result.status = TRAS_TEST_FAILED;
@@ -243,6 +254,8 @@ pvalue2 = 1.0;
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = c->nbits & 0x07;
+	ctx->result.stats1 = s;
+	ctx->result.stats2 = (double)c->wins;
 	ctx->result.pvalue1 = pvalue1;
 	ctx->result.pvalue2 = pvalue2;
 
