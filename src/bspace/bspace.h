@@ -34,6 +34,7 @@
 #define	__BSPACE_H__
 
 struct bspace_params {
+	unsigned int	b;	/* bit offset in integer */
 	unsigned int	m;	/* number of birthdays */
 	unsigned int	q;	/* number of bits per day */
 	unsigned int	n;	/* number of days in a year */
@@ -45,11 +46,11 @@ struct bspace_params {
  * Practical restrictions for the test.
  */
 #define	BSPACE_MIN_M		8
-
 #define	BSPACE_MAX_M		32
+
+#define	BSPACE_MIN_BIT_OFFSET	0
+#define	BSPACE_MAX_BIT_OFFSET	7
 
 TRAS_DECLARE_ALGO(bspace);
 
 #endif
-
-
