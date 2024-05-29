@@ -104,24 +104,21 @@ cusum_init(struct tras_ctx *ctx, void *params)
 	struct cusum_ctx *c;
 	struct cusum_params *p = params;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
+
 	if (p->mode != CUSUM_MODE_FORWARD && p->mode != CUSUM_MODE_BACKWARD)
 		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
 
 	c = malloc(sizeof(struct cusum_ctx));
 	if (c == NULL)
 		return (ENOMEM);
 
-	c->nbits = 0;
 	c->mins = 0;
 	c->maxs = 0;
 	c->sum = 0;
 	c->mode = p->mode;
+	c->nbits = 0;
 	c->alpha = p->alpha;
 
 	ctx->context = c;
@@ -131,16 +128,14 @@ cusum_init(struct tras_ctx *ctx, void *params)
 	return (0);
 }
 
-static void
+static int
 cusum_update_forward(struct cusum_ctx *c, void *data, unsigned int nbits)
 {
+	uint8_t *p = (uint8_t *)data;
 	unsigned int i, n;
-	uint8_t *p;
 	int mins, maxs;
 
-	p = (uint8_t *)data;
 	n = nbits >> 3;
-
 	for (i = 0; i < n; i++, p++) {
 		mins = cusum_mintab[*p];
 		maxs = cusum_maxtab[*p];
@@ -165,15 +160,50 @@ cusum_update_forward(struct cusum_ctx *c, void *data, unsigned int nbits)
 			}
 		}
 	}
-
 	c->nbits += nbits;
+
+	return (0);
 }
 
-static void
+static int
 cusum_update_backward(struct cusum_ctx *c, void *data, unsigned int nbits)
 {
+	unsigned int i, n, m;
+	uint8_t *p, mask;
 
-	/* todo: implementation */
+	if (c->nbits != 0)
+		return (ENXIO);
+	if (nbits < CUSUM_MIN_BITS)
+		return (EBADMSG);
+
+	p = (uint8_t *)data + (nbits >> 3);
+	n = nbits;
+
+	while (n > 0) {
+		if (n & 0x07) {
+			m = n & 0x07;
+			mask = 0x80 >> (m - 1);
+		} else {
+			m = 8;
+			mask = 0x01;
+		}
+		for (i = 0; i < m; i++, mask <<= 1) {
+			if (*p & mask) {
+				c->sum++;
+				if (c->sum > c->maxs)
+					c->maxs = c->sum;
+			} else {
+				c->sum--;
+				if (c->sum < c->mins)
+					c->mins = c->sum;
+			}
+		}
+		n = n - m;
+		p--;
+	}
+	c->nbits += nbits;
+
+	return (0);
 }
 
 int
@@ -181,23 +211,17 @@ cusum_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct cusum_ctx *c;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	c = ctx->context;
 
 	switch (c->mode) {
 	case CUSUM_MODE_FORWARD:
-		cusum_update_forward(c, data, nbits);
-		break;
+		return (cusum_update_forward(ctx->context, data, nbits));
 	case CUSUM_MODE_BACKWARD:
-		cusum_update_backward(c, data, nbits);
-		return (ENOSYS);
+		return (cusum_update_backward(ctx->context, data, nbits));
 	}
-
-	return (0);
+	return (ENXIO);
 }
 
 /*
@@ -213,10 +237,7 @@ cusum_final(struct tras_ctx *ctx)
 	double pvalue, sum, sqrtn;
 	int first, last, k, n, z;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 
@@ -250,7 +271,7 @@ cusum_final(struct tras_ctx *ctx)
 
 	ctx->result.discard = 0;
 	ctx->result.stats1 = (double)z;
-	ctx->result.stats2 = 0.0;
+	ctx->result.stats2 = sum;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0;
 
