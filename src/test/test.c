@@ -159,8 +159,13 @@ struct universal_params coron_params = {
 	.Q = 10 * (1 << 6),
 };
 
-struct cusum_params cusum_params = {
+struct cusum_params cusum_params_fw = {
 	.mode = CUSUM_MODE_FORWARD,
+	.alpha = 0.01,
+};
+
+struct cusum_params cusum_params_bw = {
+	.mode = CUSUM_MODE_BACKWARD,
 	.alpha = 0.01,
 };
 
@@ -197,7 +202,9 @@ static const struct test_algo algo_list[] = {
 	{ "brank68", NULL, NULL },
 	{ "bstream", &bstream_algo, &bstream_params },
 	{ "c1tssbytes", NULL, NULL },
-	{ "cusum", &cusum_algo, &cusum_params },
+	{ "cusum", &cusum_algo, &cusum_params_fw },
+	{ "cusumfw", &cusum_algo, &cusum_params_fw },
+	{ "cusumbw", &cusum_algo, &cusum_params_bw },
 	{ "fourier", NULL, NULL },
 	{ "lcomplex", NULL, NULL},
 	{ "maurer", &maurer_algo, &maurer_params },
