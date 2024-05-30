@@ -59,18 +59,15 @@ struct squeeze_ctx {
 int
 squeeze_init(struct tras_ctx *ctx, void *params)
 {
-	struct squeeze_ctx *c;
 	struct squeeze_params *p = params;
+	struct squeeze_ctx *c;
 	size_t size;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
+
 	if (p->K < SQUEEZE_MIN_NUMBERS || p->K > SQUEEZE_MAX_NUMBERS)
 		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
 
 	size = sizeof(struct squeeze_ctx) + SQUEEZE_CHI_SQUARE_SLOTS *
 	    sizeof(unsigned int);
@@ -131,10 +128,8 @@ squeeze_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	struct squeeze_ctx *c;
 	unsigned int *u, i, n;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
 	if (nbits == 0 || (nbits & 0x1f))
 		return (EINVAL);
 
@@ -166,11 +161,10 @@ squeeze_final(struct tras_ctx *ctx)
 	struct squeeze_ctx *c;
 	double pvalue, mean;
 
-	if (ctx == NULL)
-		return (EINVAL);
+	TRAS_CHECK_FINAL(ctx);
+
 	c = ctx->context;
-	if (c == NULL || ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+
 	if (c->nint < c->K)
 		return (EALREADY);
 

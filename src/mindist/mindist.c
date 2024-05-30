@@ -118,14 +118,11 @@ mindist_init(struct tras_ctx *ctx, void *params)
 	struct mindist_ctx *c;
 	struct mindist_params *p = params;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
+
 	if (p->K < MINDIST_MIN_POINTS || p->K > MINDIST_MAX_POINTS)
 		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
 
 	c = malloc(sizeof(struct mindist_ctx) + p->K * sizeof(struct point));
 	if (c == NULL) {
@@ -134,9 +131,15 @@ mindist_init(struct tras_ctx *ctx, void *params)
 	}
 	c->points = (struct point *)(c + 1);
 	c->npoint = 0;
-	c->nbits = 0;
 	c->K = p->K;
+	c->nbits = 0;
 	c->alpha = p->alpha;
+
+	/*
+	 * TODO: consider to write a macro for generic init context.
+	 *
+	 * TRAS_INIT_CTX(ctx, c, &mindist_algo);
+	 */
 
 	ctx->context = c;
 	ctx->algo = &mindist_algo;
@@ -153,10 +156,8 @@ mindist_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	uint32_t *d;
 	double *v;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
 	if (nbits == 0 || nbits & 0x01f)
 		return (EINVAL);
 
@@ -187,11 +188,10 @@ mindist_final(struct tras_ctx *ctx)
 	double pvalue, d2min, mean;
 	int sum;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
+
 	c = ctx->context;
+
 	if (c->npoint < c->K)
 		return (EALREADY);
 

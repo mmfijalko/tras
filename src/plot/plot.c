@@ -40,10 +40,8 @@
 #include <math.h>
 
 #include <tras.h>
+#include <cdefs.h>
 #include <plot.h>
-
-#define	min(a, b)		(((a) < (b)) ? (a) : (b))
-#define	max(a, b)		(((a) > (b)) ? (a) : (b))
 
 /*
  * The point structure to represent car position.
@@ -74,16 +72,13 @@ struct plot_ctx {
 int
 plot_init(struct tras_ctx *ctx, void *params)
 {
-	struct plot_ctx *c;
 	struct plot_params *p = params;
+	struct plot_ctx *c;
 	size_t size;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
+
 	if (p->idist != PARKING_LOT_IDIST_COORD_MAX)
 		return (EINVAL);
 
@@ -246,10 +241,9 @@ plot_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	struct point car;
 	unsigned int r, n, i;
 	int error;
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
 	if (nbits & 0x3f)
 		return (EINVAL);
 
@@ -303,11 +297,8 @@ plot_final(struct tras_ctx *ctx)
 	struct plot_ctx *c;
 	double s, pvalue;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
-	
+	TRAS_CHECK_FINAL(ctx);
+
 	c = ctx->context;
 
 	if (c->tries < PARKING_LOT_MIN_CARS)

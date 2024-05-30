@@ -64,18 +64,16 @@ struct otmatch_ctx {
 int
 otmatch_init(struct tras_ctx *ctx, void *params)
 {
-	struct otmatch_ctx *c;
 	struct otmatch_params *p = params;
+	struct otmatch_ctx *c;
 	size_t size;
 
-	if (ctx == NULL || params != NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
 
-	/* todo: verify multiple parameters */
+	/*
+	 * TODO: verify multiple parameters.
+	 */
 
 	c = malloc(sizeof(struct otmatch_ctx) + (p->m + 7) / 8);
 	if (c == NULL)
@@ -104,17 +102,13 @@ otmatch_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct otmatch_ctx *c;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	c = ctx->context;
+	/*
+	 * TODO: implementation.
+	 */
 
-	c->nbits += nbits;
-
-	/* todo: */
-	return (0);
+	return (ENOSYS);
 }
 
 /*
@@ -135,6 +129,8 @@ otmatch_final(struct tras_ctx *ctx)
 	struct otmatch_ctx *c;
 	double lambda, ni;
 	double pvalue;
+
+	TRAS_CHECK_FINAL(ctx);
 
 	if (ctx == NULL)
 		return (EINVAL);
@@ -157,6 +153,8 @@ otmatch_final(struct tras_ctx *ctx)
 	ctx->result.discard = c->nbits % c->N;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0.0;
+
+	ctx->state = TRAS_STATE_FINAL;
 
 	return (0);
 }

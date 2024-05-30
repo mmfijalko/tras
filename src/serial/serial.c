@@ -108,16 +108,15 @@ serial_init(struct tras_ctx *ctx, void *params)
 	struct serial_params *p = params;
 	int error;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
+
 	if (p->m < SERIAL_MIN_M || p->m > SERIAL_MAX_M)
 		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
 
-	/* XXX: if m == 1 the test is frequency test */
+	/*
+	 * Notice: if m == 1 the test is frequency test.
+	 */
 
 	error = serial_alloc_context(ctx, p);
 	if (error != 0) {
@@ -137,20 +136,15 @@ serial_init(struct tras_ctx *ctx, void *params)
 int
 serial_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	struct serial_ctx *c;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	c = ctx->context;
 
-	c->nbits += nbits;
+	/*
+	 * TODO: implementation.
+	 */
 
-	/* todo: implementation */
-
-	return (0);
+	return (ENOSYS);
 }
 
 /*
@@ -166,11 +160,8 @@ serial_final(struct tras_ctx *ctx)
 	double dpsim1, dpsim2;
 	double pvalue1, pvalue2;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
-	
+	TRAS_CHECK_FINAL(ctx);
+
 	c = ctx->context;
 	
 	if (c->nbits < serial_min_bits(ctx))
@@ -179,6 +170,7 @@ serial_final(struct tras_ctx *ctx)
 	/*
 	 * TODO: check condition to finalize the test.
 	 */
+
 	n = c->nbits;
 	m = c->m;
 
@@ -212,11 +204,10 @@ serial_final(struct tras_ctx *ctx)
 	/* Todo: finalize the test. */
 
 	/* Determine and store results */
-	if (pvalue1 < c->alpha || pvalue2 < c->alpha) {
+	if (pvalue1 < c->alpha || pvalue2 < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
-	} else {
+	else
 		ctx->result.status = TRAS_TEST_PASSED;
-	}
 
 	ctx->result.discard = n % c->m;
 	ctx->result.pvalue1 = pvalue1;

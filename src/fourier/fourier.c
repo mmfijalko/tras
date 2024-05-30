@@ -92,11 +92,10 @@ fourier_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 
 	c = ctx->context;
 
-	c->nbits += nbits;
-
-	/* todo: implementation */
-
-	return (0);
+	/*
+	 * TODO: implementation.
+	 */
+	return (ENOSYS);
 }
 
 int

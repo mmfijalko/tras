@@ -86,15 +86,13 @@ sparse_min_nbits(struct sparse_ctx *c, struct sparse_params *p)
 int
 sparse_init(struct tras_ctx *ctx, void *params)
 {
-	struct sparse_ctx *c;
 	struct sparse_params *p = params;
+	struct sparse_ctx *c;
 	unsigned int nwords;
 	int error;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
 
 	error = sparse_verify_params(ctx, p);
 	if (error != 0)
@@ -117,6 +115,7 @@ sparse_init(struct tras_ctx *ctx, void *params)
 	c->lmax = p->wmax + p->k - 1;
 	c->sparse = nwords;
 	c->word = 0;
+
 	ctx->context = c;
 	ctx->algo = &sparse_algo;
 	ctx->state = TRAS_STATE_INIT;
@@ -132,10 +131,8 @@ sparse_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	uint32_t *strokes, word, lmask, wmask;
 	unsigned int n, i, k;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
 	if (nbits & 0x1f)
 		return (EINVAL);
 	if (nbits == 0)
@@ -195,10 +192,7 @@ sparse_final(struct tras_ctx *ctx)
 	struct sparse_params *p;
 	double pvalue, s;
 
-	if (ctx == NULL || ctx->context == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 	p = &c->params;

@@ -62,12 +62,9 @@ ntmatch_init(struct tras_ctx *ctx, void *params)
 	struct ntmatch_params *p = params;
 	unsigned int i;
 
-	if (ctx == NULL || params != NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
+
 	if (p->m < NTMATCH_MIN_M)
 		return (EINVAL);
 	if (p->M < NTMATCH_MIN_SUBS_M)
@@ -98,16 +95,16 @@ ntmatch_init(struct tras_ctx *ctx, void *params)
 }
 
 int
-ntmatch_update(struct tras_ctx *ctx, void *data, unsigned int bits)
+ntmatch_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	/* todo: */
-	return (0);
+	/*
+	 * TODO: implementation.
+	 */
+
+	return (ENOSYS);
 }
 
 int
@@ -118,10 +115,7 @@ ntmatch_final(struct tras_ctx *ctx)
 	double chi2, pvalue;
 	unsigned int i;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 
@@ -155,7 +149,7 @@ ntmatch_final(struct tras_ctx *ctx)
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0.0;
 
-	/* todo: implementation */
+	ctx->state = TRAS_STATE_FINAL;
 
 	return (0);
 }

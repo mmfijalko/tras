@@ -39,9 +39,11 @@
 #include <math.h>
 
 #include <tras.h>
-#include <hamming8.h>
+#include <cdefs.h>
 #include <utils.h>
 #include <bits.h>
+
+#include <hamming8.h>
 #include <opso.h>
 
 /*
@@ -56,21 +58,15 @@ struct opso_ctx {
 	unsigned int	sparse;	/* number of missing words */
 };
 
-#define	min(a, b)	(((a) < (b)) ? (a) : (b))
-
 int
 opso_init(struct tras_ctx *ctx, void *params)
 {
-	struct opso_ctx *c;
 	struct opso_params *p = params;
+	struct opso_ctx *c;
 	int size;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
 
 	c = malloc(sizeof(struct opso_ctx) + OPSO_WORDS / 8);
 	if (c == NULL) {
@@ -85,6 +81,7 @@ opso_init(struct tras_ctx *ctx, void *params)
 	c->letters = 0;
 	c->word = 0;
 	c->sparse = OPSO_WORDS;
+
 	ctx->context = c;
 	ctx->algo = &opso_algo;
 	ctx->state = TRAS_STATE_INIT;
@@ -99,10 +96,8 @@ opso_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	unsigned int n, i, k;
 	uint32_t *strokes, word;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
 	if (nbits & 0x1f)
 		return (EINVAL);
 	if (nbits == 0)
@@ -157,10 +152,7 @@ opso_final(struct tras_ctx *ctx)
 	struct opso_ctx *c;
 	double pvalue, s;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 	if (c->nbits < OPSO_MIN_BITS)

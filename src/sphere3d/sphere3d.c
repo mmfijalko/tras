@@ -76,18 +76,15 @@ struct sphere3d_ctx {
 int
 sphere3d_init(struct tras_ctx *ctx, void *params)
 {
-	struct sphere3d_ctx *c;
 	struct sphere3d_params *p = params;
+	struct sphere3d_ctx *c;
 	size_t size;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
+
 	if (p->K < SPHERE3D_MIN_TRIPLETS || p->K > SPHERE3D_MAX_TRIPLETS)
 		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
 
 	/*
 	 * Unfortunatelly we have to store all points on consecutive
@@ -186,14 +183,14 @@ sphere3d_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	uint32_t *d;
 	double *v;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
 	if (nbits == 0 || (nbits & 0x1f))
 		return (EINVAL);
 
-	/* TODO: no check for number of points processed */
+	/*
+	 * TODO: no check for number of points processed.
+	 */
 
 	c = ctx->context;
 
@@ -226,11 +223,10 @@ sphere3d_final(struct tras_ctx *ctx)
 	double pvalue, mean;
        	double r1min, r2min, r3min;
 
-	if (ctx == NULL)
-		return (EINVAL);
+	TRAS_CHECK_FINAL(ctx);
+
 	c = ctx->context;
-	if (c == NULL || ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+
 	if (c->npoint < SPHERE3D_MIN_TRIPLETS)
 		return (EALREADY);
 

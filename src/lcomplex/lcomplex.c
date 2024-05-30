@@ -121,16 +121,14 @@ lcomplex_init(struct tras_ctx *ctx, void *params)
 	struct lcomplex_ctx *c;
 	int size;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
 
 	if (p->K < LINEARC_MIN_K || p->K > LINEARC_MAX_K)
 		return (EINVAL);
 	if (p->M < LINEARC_MIN_M || p->M > LINEARC_MAX_M)
 		return (EINVAL);
 	if (p->u != 0)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
 		return (EINVAL);
 
 	size = sizeof(struct lcomplex_ctx);
@@ -165,7 +163,9 @@ lcomplex_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct lcomplex_ctx *c = ctx->context;
 	unsigned int M, n, nblk, offs, full, i;
-	
+
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
 	/*
 	 * TODO: multi-check for conditions to calculate.
 	 */
@@ -216,10 +216,7 @@ lcomplex_final(struct tras_ctx *ctx)
 	struct lcomplex_ctx *c = ctx->context;
 	double pvalue;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 

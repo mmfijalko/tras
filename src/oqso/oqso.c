@@ -38,9 +38,10 @@
 #include <math.h>
 
 #include <tras.h>
-#include <hamming8.h>
 #include <utils.h>
 #include <bits.h>
+
+#include <hamming8.h>
 #include <oqso.h>
 
 /*
@@ -54,15 +55,11 @@ struct oqso_ctx {
 int
 oqso_init(struct tras_ctx *ctx, void *params)
 {
-	struct oqso_ctx *c;
 	struct oqso_params *p = params;
+	struct oqso_ctx *c;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
 
 	c = malloc(sizeof(struct oqso_ctx));
 	if (c == NULL) {
@@ -73,6 +70,7 @@ oqso_init(struct tras_ctx *ctx, void *params)
 	/* todo: other initializations when defined */
 
 	c->nbits = 0;
+	c->alpha = p->alpha;
 
 	ctx->context = c;
 	ctx->algo = &oqso_algo;
@@ -84,22 +82,14 @@ oqso_init(struct tras_ctx *ctx, void *params)
 int
 oqso_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	struct oqso_ctx *c;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	c = ctx->context;
+	/*
+	 * TODO: implementation.
+	 */
 
-	(void)c;
-
-	/* todo: implementation */
-
-	c->nbits += nbits;
-
-	return (0);
+	return (ENOSYS);
 }
 
 int
@@ -109,10 +99,7 @@ oqso_final(struct tras_ctx *ctx)
 	double pvalue, sobs;
 	int sum;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 

@@ -37,11 +37,11 @@
 #include <math.h>
 
 #include <tras.h>
+#include <cdefs.h>
+
 #include <hamming8.h>
 #include <frequency.h>
 #include <runs.h>
-
-#define	abs(a)		(((a) < 0) ? -(a) : (a))
 
 struct runs_ctx {
 	unsigned int	nbits;		/* number of bits processed */
@@ -130,16 +130,12 @@ runs_runs_count2(uint8_t *p, unsigned int nbits)
 int
 runs_init(struct tras_ctx *ctx, void *params)
 {
-	struct runs_ctx *c;
 	struct runs_params *p = params;
+	struct runs_ctx *c;
 	size_t size;
 
-	if (ctx == NULL || params == NULL)
-		return (EINVAL);
-	if (p->alpha <= 0.0 || p->alpha >= 1.0)
-		return (EINVAL);
-	if (ctx->state > TRAS_STATE_NONE)
-		return (EINPROGRESS);
+	TRAS_CHECK_INIT(ctx);
+	TRAS_CHECK_PARA(p, p->alpha);
 
 	c = malloc(sizeof(struct runs_ctx));
 	if (c == NULL)
@@ -165,10 +161,8 @@ runs_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	unsigned int n;
 	uint8_t *p;
 
-	if (ctx == NULL || data == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
 	if (nbits == 0)
 		return (0);
 
@@ -199,10 +193,7 @@ runs_final(struct tras_ctx *ctx)
 	double pvalue, stats;
 	double pi, arg;
 
-	if (ctx == NULL)
-		return (EINVAL);
-	if (ctx->state != TRAS_STATE_INIT)
-		return (ENXIO);
+	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 
