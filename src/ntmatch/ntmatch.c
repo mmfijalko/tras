@@ -40,56 +40,69 @@
 #include <stddef.h>
 
 #include <tras.h>
-#include <utils/hamming8.h>
+#include <cdefs.h>
 #include <ntmatch.h>
 
+	#include <stdio.h>
 /*
  * Private context for the test.
  */
 struct ntmatch_ctx {
-	unsigned int	nbits;
 	unsigned int *	w;	/* templates frequency table */
-	unsigned int	m;
-	unsigned int	M;
-	unsigned int 	N;
-	double		alpha;
+	unsigned int	m;	/* the length of each template */
+	unsigned int	M;	/* the length of each substring */
+	unsigned int 	N;	/* the number of independent blocks */
+	uint32_t	B;	/* the m-bits template to be matched */
+	unsigned int 	nbmax;	/* max number of bits to be tested */
+	unsigned int	wbits;	/* the number of valid bits in the word */
+	uint32_t	word;	/* word saved from last update */
+	unsigned int	nbits;	/* number of bits updated */
+	double		alpha;	/* the significance level for H0 */
 };
+
+static int
+ntmatch_check_template(uint32_t B)
+{
+
+	/*
+	 * TODO: implementation.
+	 */
+
+	return (1);
+}
 
 int
 ntmatch_init(struct tras_ctx *ctx, void *params)
 {
-	struct ntmatch_ctx *c;
 	struct ntmatch_params *p = params;
-	unsigned int i;
+	struct ntmatch_ctx *c;
+	int size, error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	if (p->m < NTMATCH_MIN_M)
+	if (p->m < NTMATCH_MIN_M || p->m > NTMATCH_MAX_M)
 		return (EINVAL);
-	if (p->M < NTMATCH_MIN_SUBS_M)
-		return (EINVAL);
-	if (p->N < NTMATCH_MIN_N || p->N > NTMATCH_MAX_N)
+	if (p->M < NTMATCH_MIN_SUBS_LEN || p->N < NTMATCH_MIN_N)
+	       return (EINVAL);
+	if (!ntmatch_check_template(p->B))
 		return (EINVAL);
 
-	c = malloc(sizeof(struct ntmatch_ctx) + p->N * sizeof(unsigned int));
-	if (c == NULL)
-		return (ENOMEM);
+	size = sizeof(struct ntmatch_ctx) + p->N * sizeof(unsigned int);
 
-	/* Initialize templates frequency table */
+	error = tras_init_context(ctx, &ntmatch_algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+
+	c = ctx->context;
 	c->w = (unsigned int *)(c + 1);
-	for (i = 0; i < p->N; i++)
-		c->w[i] = 0;
 
-	c->nbits = 0;
 	c->m = p->m;
 	c->M = p->M;
 	c->N = p->N;
+	c->B = p->B;
+	c->nbmax = c->N * c->M;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &ntmatch_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -97,14 +110,69 @@ ntmatch_init(struct tras_ctx *ctx, void *params)
 int
 ntmatch_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
+	struct ntmatch_ctx *c;
+	uint8_t *p, bm;
+	unsigned int n, o, i, m, k;
+	unsigned int b, wbits;
+	uint32_t mask, word;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	/*
-	 * TODO: implementation.
-	 */
+	c = ctx->context;
+	p = (uint8_t *)data;
 
-	return (ENOSYS);
+	/* the number of bits to update */
+	n = min(c->nbits, c->nbmax);
+	n = min(c->nbmax - n, nbits);
+
+	/* the block number and the offset in the block */
+	b = c->nbits / c->M;
+	o = c->nbits % c->M;
+
+	/* the number of valid bits in the saved word */
+	wbits = c->wbits;
+
+	/* the mask for template and the word from previous update */
+	word = (o != 0) ? c->word : 0;
+	mask = (1 << c->m) - 1;
+
+	while (n > 0) {
+		k = c->M - o;
+		k = min(k, n);
+		for (i = 0, bm = 0x80; i < k; i++) {
+			word = ((word << 1) | ((*p & bm) ? 1:0)) & mask;
+			if (wbits >= c->m) {
+				/* the next full m-bits word with one new bit */
+				if (c->B == word) {
+					c->w[b]++;
+					word = 0;
+					wbits = 0;
+				}
+			} else {
+				/* still constructing m-bits word */
+				wbits++;
+			}
+			bm = bm >> 1;
+			if (bm == 0x00) {
+				bm = 0x80;
+				p++;
+			}
+		}
+		o = o + k;
+		if (o == c->M) {
+			o = 0;
+			wbits = 0;
+			word = 0;
+			b++;
+		}
+		n = n - k;
+	}
+	c->word = word;
+	c->wbits = wbits;
+
+	c->nbits += nbits;
+
+	return (0);
 }
 
 int
@@ -113,13 +181,23 @@ ntmatch_final(struct tras_ctx *ctx)
 	struct ntmatch_ctx *c;
 	double mean, var;
 	double chi2, pvalue;
-	unsigned int i;
+	unsigned int i, k;
 
 	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 
-#ifdef __not_yet__
+	if (c->nbits < c->nbmax)
+		return (EALREADY);
+
+#if 0
+	printf("frequency table for ntmatch algorithm:\n");
+	for (i = 0; i < c->N; i++) {
+		printf("w[%d] = %u\n", i, c->w[i]);
+	}
+	printf("\n");
+#endif
+
 	mean = (double)c->M - (double)c->m + 1.0;
 	var = (double)c->M;
 	i = c->m;
@@ -128,14 +206,12 @@ ntmatch_final(struct tras_ctx *ctx)
 		mean = mean / (double)(1UL << k);
 		i = i - k;
 	}
-#endif
 
 	for (chi2 = 0.0, i = 0; i < c->N; i++)
 		chi2 += ((double)c->w[i] - mean) * ((double)c->w[i] - mean);
 	chi2 = chi2 / var;
 
 #ifdef __not_yet__
-
 	pvalue = igamc((double)c->N / 2.0, chi2 / 2.0);
 #else
 	pvalue = 0.0;
@@ -146,10 +222,10 @@ ntmatch_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = c->nbits % c->M;
+	ctx->result.stats1 = chi2;	/* XXX: temp */
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0.0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
