@@ -73,8 +73,9 @@ struct bmatrix_ctx {
 int
 bmatrix_init(struct tras_ctx *ctx, void *params)
 {
-	struct bmatrix_ctx *c;
 	struct bmatrix_params *p = params;
+	struct bmatrix_ctx *c;
+	int size, error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
@@ -84,22 +85,16 @@ bmatrix_init(struct tras_ctx *ctx, void *params)
 	if (p->m > BMATRIX_MAX_M || p->q > BMATRIX_MAX_Q)
 		return (EINVAL);
 
-	c = malloc(sizeof(struct bmatrix_ctx));
-	if (c == NULL)
-		return (ENOMEM);
+	size = sizeof(struct bmatrix_ctx);
 
-	c->nbits = 0;
-	c->nmatx = 0;
-	c->fm0 = 0;
-	c->fm1 = 0;
+	error = tras_init_context(ctx, &bmatrix_algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (0);
+
 	c->alpha = p->alpha;
 	c->m = p->m;
 	c->q = p->q;
 	c->mq = c->m * c->q;
-
-	ctx->context = c;
-	ctx->algo = &bmatrix_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -120,9 +115,9 @@ int
 bmatrix_final(struct tras_ctx *ctx)
 {
 	struct bmatrix_ctx *c;
-	unsigned int n;
 	double diffn, expt0, expt1, exptn;
 	double fmn, chi2, pvalue;
+	unsigned int n;
 
 	TRAS_CHECK_FINAL(ctx);
 
@@ -153,11 +148,9 @@ bmatrix_final(struct tras_ctx *ctx)
 
 	ctx->result.discard = c->nbits % c->mq;
 	ctx->result.stats1 = chi2;
-	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
