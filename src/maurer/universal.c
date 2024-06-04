@@ -105,9 +105,10 @@ int
 universal_init_algo(struct tras_ctx *ctx, void *params,
     const struct tras_algo *algo)
 {
-	struct universal_ctx *c;
 	struct universal_params *p = params;
+	struct universal_ctx *c;
 	size_t size;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
@@ -120,25 +121,18 @@ universal_init_algo(struct tras_ctx *ctx, void *params,
 		return (EINVAL);
 
 	size = (1 << p->L) * sizeof(unsigned int);
-	c = malloc(sizeof(struct universal_ctx) + size);
-	if (c == NULL)
-		return (ENOMEM);
-	c->lblks = (unsigned int *)(c + 1);
-	memset(c->lblks, 0, size);
 
-	c->block = 0;
+	error = tras_init_context(ctx, algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+
+	c = ctx->context;
+	c->lblks = (unsigned int *)(c + 1);
+
 	c->L = p->L;
 	c->Q = 10 * (1UL << p->L);
-	c->K = 0;	/* TODO: temporary not calculated */
-	c->iblk = 0;
-	c->stats = 0.0;
 	c->coeff = p->coeff;
-	c->nbits = 0;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -288,11 +282,9 @@ universal_final(struct tras_ctx *ctx)
 
 	ctx->result.discard = c->nbits - (c->K + c->Q) * c->L;
 	ctx->result.stats1 = stats;
-	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
