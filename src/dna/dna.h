@@ -33,6 +33,9 @@
 #ifndef __DNA_H__
 #define	__DNA_H__
 
+/*
+ * The DNA test parameters structure.
+ */
 struct dna_params {
 	double	alpha;	/* significance level for H0 */
 };
@@ -52,13 +55,7 @@ struct dna_params {
 #define	DNA_MIN_BITS		DNA_BITS	/* minimum nuber of bits */
 #define	DNA_MAX_BITS		DNA_BITS	/* maximum number of bits */
 
-/* Letters encoding, not used */
-#define	DNA_C			0x00
-#define	DNA_G			0x01
-#define	DNA_A			0x02
-#define	DNA_T			0x03
-#define	DNA_L_MASK		0x03
-
+#define DNA_L_MASK		0x03
 #define	DNA_WORD_MASK		0x000fffff	/* mask for bits in stroke */
 #define	DNA_LETTER_MASK		0x00000003	/* mask bits for letter */
 

@@ -36,16 +36,14 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include <string.h>
 #include <math.h>
 
 #include <tras.h>
-#include <hamming8.h>
 #include <utils.h>
+#include <cdefs.h>
 #include <bits.h>
 #include <dna.h>
 #include <sparse.h>
-#include <cdefs.h>
 
 /*
  * The DNA test context
@@ -59,33 +57,31 @@ struct dna_ctx {
 	unsigned int	sparse;	/* number of missing words */
 };
 
+/*
+ * The DNA test intitialization method.
+ */
 int
 dna_init(struct tras_ctx *ctx, void *params)
 {
-	struct dna_ctx *c;
 	struct dna_params *p = params;
-	int size;
+	struct dna_ctx *c;
+	size_t size;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
 	size = sizeof(struct dna_ctx) + DNA_WORDS / 8;
 
-	c = malloc(size);
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
-	}
-	c->wmap = (uint32_t *)(c + 1);
-	memset(c->wmap, 0, DNA_WORDS / 8);
+	error = tras_init_context(ctx, &dna_algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (0);
 
-	c->nbits = 0;
-	c->alpha = p->alpha;
-	c->letters = 0;
+	c = ctx->context;
+
+	c->wmap = (uint32_t *)(c + 1);
 	c->sparse = DNA_WORDS;
-	ctx->context = c;
-	ctx->algo = &dna_algo;
-	ctx->state = TRAS_STATE_INIT;
+	c->alpha = p->alpha;
 
 	return (0);
 }
@@ -169,9 +165,8 @@ dna_final(struct tras_ctx *ctx)
 	ctx->result.stats1 = (double)c->sparse;
 	ctx->result.stats2 = s;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
