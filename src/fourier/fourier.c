@@ -44,17 +44,18 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
-#include <string.h>
 #include <endian.h>
 #include <math.h>
 
 #include <tras.h>
-#include <hamming8.h>
 #include <fourier.h>
 
+/*
+ * The Discrete Fourier Transform Test context.
+ */
 struct fourier_ctx {
-	unsigned int	nbits;	/* number of bits processed */
-	double		alpha;	/* significance level for H0 */
+	unsigned int	nbits;	/* the number of bits processed */
+	double		alpha;	/* the significance level for H0 */
 };
 
 int
@@ -62,23 +63,19 @@ fourier_init(struct tras_ctx *ctx, void *params)
 {
 	struct fourier_params *p = params;
 	struct fourier_ctx *c;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	if (ctx == NULL || params != NULL)
-		return (EINVAL);
+	error = tras_init_context(ctx, &fourier_algo,
+	    sizeof(struct fourier_ctx), TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
 
-	c = malloc(sizeof(struct fourier_ctx));
-	if (c == NULL)
-		return (ENOMEM);
+	c = ctx->context;
 
-	c->nbits = 0;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &fourier_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -134,10 +131,9 @@ fourier_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = 0;
-	ctx->result.stats1 = 0.0;
-	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0.0;
+
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
