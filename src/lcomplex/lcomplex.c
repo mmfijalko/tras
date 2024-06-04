@@ -114,12 +114,15 @@ lcomplex_update_block(struct lcomplex_ctx *c, int offs, void *data)
 	/* TODO: single block update for linear complexity */
 }
 
+/*
+ * The linear complexity test initialization method.
+ */
 int
 lcomplex_init(struct tras_ctx *ctx, void *params)
 {
 	struct lcomplex_params *p = params;
 	struct lcomplex_ctx *c;
-	int size;
+	int size, error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
@@ -135,25 +138,20 @@ lcomplex_init(struct tras_ctx *ctx, void *params)
 	size += (p->M + 7) / 8;
 	size += (p->K + 1) * sizeof(unsigned int);
 
-	c = malloc(size);
-	if (c == NULL)
-		return (ENOMEM);
+	error = tras_init_context(ctx, &lcomplex_algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+
+	c = ctx->context;
+	c->block = (uint8_t *)(c + 1);
+	c->vfreq = (unsigned int *)(c->block + ((p->M + 7) / 8));
 
 	c->M = p->M;
 	c->K = p->K;
 	c->u = p->M / 2.0 + (9 + ((p->M & 0x01) ? 1 : -1)) / 36.0 +
 	    (p->M / 3.0 + 2.0/9.0) / pow(2.0, p->M);
+
 	c->alpha = p->alpha;
-
-	c->block = (uint8_t *)(c + 1);
-	memset((void *)c->block, 0, (p->M + 7) / 8);
-
-	c->vfreq = (unsigned int *)(c->block + ((p->M + 7) / 8));
-	memset((void *)c->vfreq, 0, (p->K + 1) * sizeof(unsigned int));
-
-	ctx->context = c;
-	ctx->algo = &lcomplex_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -220,6 +218,11 @@ lcomplex_final(struct tras_ctx *ctx)
 
 	c = ctx->context;
 
+	/*
+	 * XXX: condition for input length:
+	 * N = floor(n / M)
+	 */
+
 	/* todo: here calculation of statistics */
 	pvalue = 0.0;
 
@@ -230,14 +233,8 @@ lcomplex_final(struct tras_ctx *ctx)
 
 	ctx->result.discard = 0;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
-
-	/*
-	 * XXX: condition for input length:
-	 * N = floor(n / M)
-	 */
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
