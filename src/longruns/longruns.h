@@ -39,11 +39,19 @@
 struct longruns_params {
 	unsigned int	M;	/* the length of each block */
 	unsigned int	N;	/* the number of blocks */
-	int		flags;	/* init flags */
 	double		alpha;	/* the significance level for H0 */
+int		version;/* the update version */
 };
 
-
+/*
+ * The list of block size parameters supported by the algorithm.
+ * The parameters (K and probabilities) are provided by NIST.
+ */
+#define	LONGRUNS_M0		8
+#define	LONGRUNS_M1		128
+#define	LONGRUNS_M2		512
+#define	LONGRUNS_M3		1000
+#define	LONGRUNS_M4		10000
 
 /*
  * Minimum number of bits for the longruns test.

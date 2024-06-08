@@ -42,175 +42,291 @@
 #include <hamming8.h>
 #include <longruns.h>
 
+#include <stdio.h>
+
+struct longruns_classes {
+	unsigned int	M;		/* the length of each block */
+	unsigned int	K;		/* the degrees of freedom */
+	const double *	pi;		/* chi2 classes probabilities */
+};
+
+/*
+ * The longest run of ones in a block test context.
+ */
 struct longruns_ctx {
-	unsigned int	ones;		/* number of ones for frequency */
-	uint8_t		last;		/* byte to keep last bit */
-	unsigned int	runs;		/* statistics ??? */
-	int		flags;		/* flags from parameters */
-
-
+	unsigned int *	v;		/* the frequency table */
+	const struct longruns_classes *classes;
+	unsigned int	nbmax;		/* max number of bits */
+	unsigned int	nblks;		/* full blocks updated */
 	unsigned int	M;		/* the length of each block */
 	unsigned int	N;		/* the number of blocks */
+	unsigned int	run;		/* runs length for update */
+	unsigned int	maxrun;		/* block maximum run length */
 	unsigned int	nbits;		/* number of bits processed */
 	double		alpha;		/* significance level for H0*/
+int version;
 };
 
 /*
- * Runs for 8 bits sequences.
+ * The probabilities for classes with M = 8, K = 3
  */
-static const uint8_t runs8[256] = {
-	0, 1, 2, 1, 2, 3, 2, 1, 2, 3, 4, 3, 2, 3, 2, 1,
-	2, 3, 4, 3, 4, 5, 4, 3, 2, 3, 4, 3, 2, 3, 2, 1,
-	2, 3, 4, 3, 4, 5, 4, 3, 4, 5, 6, 5, 4, 5, 4, 3,
-	2, 3, 4, 3, 4, 5, 4, 3, 2, 3, 4, 3, 2, 3, 2, 1,
-	2, 3, 4, 3, 4, 5, 4, 3, 4, 5, 6, 5, 4, 5, 4, 3,
-	4, 5, 6, 5, 6, 7, 6, 5, 4, 5, 6, 5, 4, 5, 4, 3,
-	2, 3, 4, 3, 4, 5, 4, 3, 4, 5, 6, 5, 4, 5, 4, 3,
-	2, 3, 4, 3, 4, 5, 4, 3, 2, 3, 4, 3, 2, 3, 2, 1,
-	1, 2, 3, 2, 3, 4, 3, 2, 3, 4, 5, 4, 3, 4, 3, 2,
-	3, 4, 5, 4, 5, 6, 5, 4, 3, 4, 5, 4, 3, 4, 3, 2,
-	3, 4, 5, 4, 5, 6, 5, 4, 5, 6, 7, 6, 5, 6, 5, 4,
-	3, 4, 5, 4, 5, 6, 5, 4, 3, 4, 5, 4, 3, 4, 3, 2,
-	1, 2, 3, 2, 3, 4, 3, 2, 3, 4, 5, 4, 3, 4, 3, 2,
-	3, 4, 5, 4, 5, 6, 5, 4, 3, 4, 5, 4, 3, 4, 3, 2,
-	1, 2, 3, 2, 3, 4, 3, 2, 3, 4, 5, 4, 3, 4, 3, 2,
-	1, 2, 3, 2, 3, 4, 3, 2, 1, 2, 3, 2, 1, 2, 1, 0,
+static const double longruns_pi_0[] = {
+	0.2148, 0.3672, 0.2305, 0.1875,
 };
 
-#define	__BIT(p, i)	(((p)[(i) / 8] >> (7 - ((i) & 0x07))) & 0x01)
+/*
+ * The probabilities for classes with M = 128, K = 5
+ */
+static const double longruns_pi_1[] = {
+	0.1174, 0.2430, 0.2493, 0.1752, 0.1027, 0.1124,
+};
 
 /*
- * Slow bit per bit algorithm to calculate number of runs.
+ * The probabilities for classes with M = 512, K = 5
  */
-static unsigned int
-runs_runs_count1(uint8_t *p, unsigned int nbits)
+static const double longruns_pi_2[] = {
+	0.1170, 0.2460, 0.2523, 0.1755, 0.1027, 0.1124
+};
+
+/*
+ * The probabilities for classes with M = 1000, K = 5
+ */
+static const double longruns_pi_3[] = {
+	0.1307, 0.2437, 0.2452, 0.1714, 0.1002, 0.1088
+};
+
+/*
+ * The probabilities for classes with M = 10000, K = 6
+ */
+static const double longruns_pi_4[] = {
+	0.0882, 0.2092, 0.2483, 0.1933, 0.1208, 0.0675, 0.0727
+};
+
+/*
+ * The list of supported lengths of blocks K param and probabilities.
+ */
+static const struct longruns_classes longruns_classes[] = {
+	{ .M = LONGRUNS_M0, .K = 3, .pi = longruns_pi_0 },
+	{ .M = LONGRUNS_M1, .K = 5, .pi = longruns_pi_1 },
+	{ .M = LONGRUNS_M2, .K = 5, .pi = longruns_pi_2 },
+	{ .M = LONGRUNS_M3, .K = 5, .pi = longruns_pi_3 },
+	{ .M = LONGRUNS_M4, .K = 6, .pi = longruns_pi_4 },
+	{ .M = 0, .K = 0, .pi = NULL} /* sentinel */
+};
+
+/*
+ * The function return class index for frequency table.
+ */
+inline static unsigned int
+longruns_category_index(unsigned int head, unsigned int tail, unsigned int lrun)
 {
-	unsigned int runs, i;
 
-	if (nbits == 0 || nbits == 1)
+	if (lrun > tail)
+		return (tail - head);
+	if (lrun < head)
 		return (0);
-
-	for (runs = 0, i = 0; i < nbits - 1; i++) {
-		if (__BIT(p, i) != __BIT(p, i + 1))
-			runs++;
-	}
-
-	return (runs);
+	return (lrun - head);
 }
 
 /*
- * Table version of the algorithm for number of runs.
+ * Increment element of the frequency table depending on M.
  */
-static unsigned int
-runs_runs_count2(uint8_t *p, unsigned int nbits)
+inline static void
+longruns_category_inc(struct longruns_ctx *c, unsigned int lrun)
 {
-	uint8_t u8, t;
-	unsigned int n, i, runs;
+	unsigned int index;
 
-	n = nbits >> 3;
-	t = *p & 0x80;
-	for (runs = 0, i = 0; i < n; i++, p++) {
-		if ((*p & 0x80) ^ t)
-			runs++;
-		runs += runs8[*p];
-		t = (*p << 7) & 0x80;
+	switch (c->M) {
+	case LONGRUNS_M0:
+		index = longruns_category_index(1, 4, lrun);
+		break;
+	case LONGRUNS_M1:
+		index = longruns_category_index(4, 9, lrun);
+		break;
+	case LONGRUNS_M2:
+		index = longruns_category_index(6, 11, lrun);
+		break;
+	case LONGRUNS_M3:
+		index = longruns_category_index(7, 12, lrun);
+		break;
+	case LONGRUNS_M4:
+		index = longruns_category_index(10, 16, lrun);
+		break;
 	}
-
-	n = nbits & 0x07;
-	if (n > 0) {
-		if ((*p & 0x80) ^ t)
-			runs++;
-		t = *p;
-		for (i = 0; i < n - 1; i++) {
-			if ((t & 0x80) ^ ((t << 1) & 0x80))
-				runs++;
-			t = t << 1;
-		}
-	}
-	return (runs);
+	c->v[index]++;
 }
 
 int
 longruns_init(struct tras_ctx *ctx, void *params)
 {
 	struct longruns_params *p = params;
+	const struct longruns_classes *classes;
 	struct longruns_ctx *c;
 	size_t size;
-	int error;
+	int i, error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	/* 
-	 * TODO: check M, N and flags in the parameter context.
-	 */
+if (p->version != 1 && p->version != 2)
+	return (EINVAL);
+
+	classes = &longruns_classes[0];
+	while (classes->pi != NULL) {
+		if (classes->M == p->M)
+			break;
+		classes++;
+	}
+	if (classes->pi == NULL)
+		return (EINVAL);
+
+	size = sizeof(struct longruns_ctx) +
+	    (classes->K + 1) * sizeof(unsigned int);
 
 	error = tras_init_context(ctx, &longruns_algo, size, TRAS_F_ZERO);
 	if (error != 0)
 		return (error);
 
 	c = ctx->context;
-
-	c->runs = 1;
+	
+	c->v = (unsigned int *)(c + 1);
 	c->M = p->M;
 	c->N = p->N;
-	c->flags = p->flags;
+	c->nbmax = p->M * p->N;
+	c->classes = classes;
 	c->alpha = p->alpha;
+
+c->version = p->version;
 
 	return (0);
 }
 
-int
-longruns_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+/*
+ * Slow version of the update algorithm, scan bit by bit.
+ */
+static int
+longruns_update1(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct longruns_ctx *c;
-	unsigned int n;
-	uint8_t *p;
-
-(void)p;
-(void)n;
+	unsigned int i, n, k, o, b, run;
+	uint8_t *p, mask;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	if (nbits == 0)
-		return (0);
-
 	c = ctx->context;
 
-#ifdef __not_yet__
-	p = (uint8_t *)data;
+	n = min(c->nbmax, c->nbits);
+	n = min(nbits, c->nbmax - n);
 
-	c->ones = frequency_sum1(data, nbits);
+	o = c->nbits % c->M;
+	b = 0;
 
-	if (c->nbits != 0 && (c->last ^ ((*p) & 0x80)))
-		c->runs++;
-	c->runs += runs_runs_count2(p, nbits);
-
-	n = ((nbits >> 3) + 7) / 8;
-	c->last = *(p + n - 1);
-	n = nbits & 0x07;
-	n = (n != 0) ? n - 1 : 7;
-	c->last = (c->last << n) & 0x80;
-#endif
+	while (n > 0) {
+		k = c->M - o;
+		k = min(k, n);
+		p = (uint8_t *)data + b / 8;
+		run = (o != 0) ? c->run : 0;
+		mask = 0x80 >> (b & 0x07);
+		for (i = 0; i < k; i++, mask >>= 1) {
+			if (mask == 0x00) {
+				mask = 0x80;
+				p++;
+			}
+			if (*p & mask) {
+				run++;
+			} else if (run != 0) {
+				if (run > c->maxrun)
+					c->maxrun = run;
+				run = 0;
+			}
+		}
+		n = n - k;
+		o = o + k;
+		b = b + k;
+		if (o == c->M) {
+			longruns_category_inc(c, c->maxrun);
+			c->maxrun = 0;
+			run = 0;
+			o = 0;
+			c->nblks++;
+		}
+	}
+	c->run = run;
 
 	c->nbits += nbits;
 
 	return (0);
 }
 
+/*
+ * The idea of a little bit faster algorithm. Still idea.
+ */
+static int
+longruns_update2(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+	struct longruns_ctx *c;
+	unsigned int n, k, o;
+	(void)c;
+
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
+	c = ctx->context;
+
+	/*
+	 * TODO: implementation.
+	 */
+	return (ENOSYS);
+}
+
+int
+longruns_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+	struct longruns_ctx *c;
+	unsigned int n, k, o;
+	(void)c;
+
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
+	c = ctx->context;
+
+	switch (c->version) {
+	case 1:
+		return (longruns_update1(ctx, data, nbits));
+	case 2:
+		return (longruns_update2(ctx, data, nbits));
+	}
+	return (ENXIO);
+}
+
+#include <stdio.h>
+
 int
 longruns_final(struct tras_ctx *ctx)
 {
 	struct longruns_ctx *c;
 	double pvalue, stats;
-	double pi, arg;
+	const double *pi;
+	double npi;
+	unsigned int i, K;
 
 	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 
+	if (c->nbits < c->nbmax)
+		return (EALREADY);
+
+	K = c->classes->K;
+	pi = c->classes->pi;
+	for (i = 0, stats = 0.0; i <= K; i++) {
+		npi = c->N * pi[i];
+		stats += (c->v[i] - npi) * (c->v[i] - npi) / npi;
+	}
+
 	/*
-	 * TODO: not implemented.
+	 * TODO: calculating igamc not implemented yet, just stats.
+	 *
+	 * p-value = igamc(K / 2, chi2(obs) / 2);
 	 */
 
 	pvalue = 0.0;
@@ -220,7 +336,8 @@ longruns_final(struct tras_ctx *ctx)
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.discard = 0;
+	ctx->result.discard = c->nbits - c->nbmax;
+	ctx->result.stats1 = stats;
 	ctx->result.pvalue1 = pvalue;
 
 	tras_fini_context(ctx, 0);
