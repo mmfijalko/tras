@@ -59,9 +59,10 @@ struct approxe_ctx {
 int
 approxe_init(struct tras_ctx *ctx, void *params)
 {
-	struct approxe_ctx *c;
 	struct approxe_params *p = params;
-	unsigned int n, i;
+	struct approxe_ctx *c;
+	unsigned int i, n, error;
+	size_t size;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
@@ -69,31 +70,21 @@ approxe_init(struct tras_ctx *ctx, void *params)
 	if (p->m < APPROXE_MIN_M || p->m > APPROXE_MAX_M)
 		return (EINVAL);
 
-	n = (unsigned int)(pow(2.0, p->m));
+	n = (unsigned int)pow(2.0, p->m);
 
-	c = malloc(sizeof(struct approxe_ctx) + (p->m - 1 + 7) / 8 +
-	   (n + 2 * n) * sizeof(unsigned int));
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
-	}
+	size = sizeof(struct approxe_ctx) + (p->m - 1 + 7) / 8 +
+	   (n + 2 * n) * sizeof(unsigned int);
+
+	error = tras_init_context(ctx, &approxe_algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+
+	c = ctx->context;
 	c->freq0 = (unsigned int *)(c + 1);
 	c->freq1 = (unsigned int *)(c->freq0 + n);
 
-	for (i = 0; i < n; i++)
-		c->freq0[i] = 0;
-	for (i = 0; i < 2 * n; i++)
-		c->freq1[i] = 0;
-
-	c->first = 0;
-	c->block = 0;
 	c->m = p->m;
-	c->nbits = 0;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &approxe_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -270,11 +261,9 @@ printf("getting lentz gamma (%g, %g) = %.16g\n",
 
 	ctx->result.discard = 0;
 	ctx->result.stats1 = stats;
-	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
