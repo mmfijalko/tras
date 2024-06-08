@@ -135,6 +135,55 @@ blkfreq_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (0);
 }
 
+/*
+ * The function to do the test partially with data update.
+ */
+int
+blkfreq_update2(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+	struct blkfreq_ctx *c;
+	unsigned int i, k, n, offs;
+	double pii;
+
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
+	c = ctx->context;
+
+	n = BLKFREQ_MAX_BLOCKS * c->m;
+	n = max(n, c->nbits);
+	n = min(nbits, n - c->nbits);
+
+	if (n > 0) {
+		k = c->nbits % c->m;
+		k = min(n, c->m - k);
+		if (k > 0) {
+			c->sum += frequency_sum1(data, k);
+			n = n - k;
+			if (n == 0) {
+				c->nblks++;
+				c->nbits += k;
+				return (0);
+			}
+		}
+		offs = k;
+		k = n / c->m;
+		for (i = 0; i < k; i++) {
+			c->sum = frequency_sum1_offs(data, offs, c->m);
+			pii = (double)c->sum / c->m - 0.5;
+			c->stats += pii * pii;
+			offs += c->m;
+			c->nblks++;
+		}
+		c->sum = 0;
+		n = n - k * c->m;
+		if (n > 0)
+			c->sum += frequency_sum1_offs(data, offs, n);
+	}
+	c->nbits += nbits;
+
+	return (0);
+}
+
 int
 blkfreq_final(struct tras_ctx *ctx)
 {
