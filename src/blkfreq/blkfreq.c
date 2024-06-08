@@ -62,6 +62,7 @@ blkfreq_init(struct tras_ctx *ctx, void *params)
 {
 	struct blkfreq_params *p = params;
 	struct blkfreq_ctx *c;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
@@ -69,21 +70,13 @@ blkfreq_init(struct tras_ctx *ctx, void *params)
 	if (p->m < BLKFREQ_MIN_M)
 		return (EINVAL);
 
-	c = malloc(sizeof(struct blkfreq_ctx));
-	if (c == NULL)
-		return (ENOMEM);
-
-	c->sum = 0;
-	c->nbits = 0;
-	c->nblks = 0;
-	c->stats = 0.0;
+	error = tras_init_context(ctx, &blkfreq_algo,
+	    sizeof(struct blkfreq_ctx), TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
 
 	c->m = p->m;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &blkfreq_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -167,9 +160,9 @@ blkfreq_final(struct tras_ctx *ctx)
 
 	ctx->result.discard = c->nbits % c->m;
 	ctx->result.stats1 = c->stats;
-	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0.0;
+
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
