@@ -28,7 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * todo: name
+ * The Approximate Entropy Test.
  */
 
 #include <stdint.h>
@@ -46,6 +46,9 @@
 
 #include <stdio.h>
 
+/*
+ * The approximate entropy test context.
+ */
 struct approxe_ctx {
 	unsigned int 	nbits;	/* number of bits processed */
 	uint32_t	first;	/* first m-1 appended bits */
@@ -237,22 +240,21 @@ approxe_final(struct tras_ctx *ctx)
 			phim1 += freq[i] * log(freq[i]);
 	}
 
-printf("%s: phim0 = %f\n", __func__, phim0);
-printf("%s: phim1 = %f\n", __func__, phim1);
 	stats = (double)n * (log(2.0) - (phim0 - phim1));
-
-printf("appen = %f, chi = %f\n", (phim0 - phim1), stats);
-printf("chi / 2 = %f\n", stats / 2.0);
 
 	/*
 	 * todo: finalization is not finished since we don't have
 	 * igammac implementation yet.
 	 * pvalue = igamc(2 ^ (m - 1), chi2 / 2);
 	 */
+#if 0
 	pvalue = lentz2_gamma((double)(1 << (c->m - 1)), stats / 2.0, 10e-32, &error);
 printf("getting lentz gamma (%g, %g) = %.16g\n",
     (double)(1 << (c->m - 1)), stats / 2.0, pvalue);
 	pvalue = pvalue / tgamma((double)(1 << (c->m - 1)));
+#else
+	pvalue = 0.0;
+#endif
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
