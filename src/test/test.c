@@ -193,6 +193,13 @@ struct craps_params craps_params = {
 	.alpha2 = 0.01,
 };
 
+struct longruns_params longruns_params = {
+	.M = 8,
+	.N = 1024,
+	.alpha = 0.01,
+.version = 1,
+};
+
 static const struct test_algo algo_list[] = {
 	{ "frequency", &frequency_algo, &frequency_params, 0 },
 	{ "sphere3d", &sphere3d_algo, &sphere3d_params, 0 },
@@ -213,6 +220,7 @@ static const struct test_algo algo_list[] = {
 	{ "otmatch", NULL, NULL },
 	{ "plot", &plot_algo, &plot_params },
 	{ "runs", &runs_algo, &runs_params },
+	{ "longruns", &longruns_algo, &longruns_params },
 	{ "sphere3d", NULL, NULL },
 	{ "squeeze", &squeeze_algo, &squeeze_params },
 	{ "bkampmassey", NULL, NULL },

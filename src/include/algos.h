@@ -35,6 +35,7 @@
 #include <frequency.h>
 #include <blkfreq.h>
 #include <runs.h>
+#include <longruns.h>
 #include <sphere3d.h>
 #include <mindist.h>
 #include <plot.h>
