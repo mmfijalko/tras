@@ -33,6 +33,7 @@
 #include <stdint.h>
 #include <errno.h>
 #include <stddef.h>
+#include <string.h>
 #include <stdlib.h>
 
 #include <tras.h>
@@ -194,4 +195,42 @@ tras_do_free(struct tras_ctx *ctx)
 	ctx->state = TRAS_STATE_NONE;
 
 	return (0);
+}
+
+int
+tras_init_context(struct tras_ctx *ctx, const struct tras_algo *algo,
+    size_t size, int flags)
+{
+	void *c;
+
+	if (ctx == NULL || algo == NULL)
+		return (EINVAL);
+
+	c = malloc(size);
+	if (c == NULL)
+		return (ENOMEM);
+
+	if (flags & TRAS_F_ZERO)
+		memset(c, 0, size);
+
+	memset(&ctx->result, 0, sizeof(ctx->result));
+
+	ctx->context = c;
+	ctx->algo = algo;
+	ctx->state = TRAS_STATE_INIT;
+
+	return (0);
+}
+
+void
+tras_fini_context(struct tras_ctx *ctx, int flags)
+{
+
+	if (ctx != NULL) {
+		if (ctx->context != NULL) {
+			free(ctx->context);
+			ctx->context = NULL;
+		}
+		ctx->state = TRAS_STATE_FINAL;
+	}
 }

@@ -176,4 +176,9 @@ int tras_do_free(struct tras_ctx *);
 int tras_do_restart(struct tras_ctx *, void *);
 int tras_do_test(struct tras_ctx *, void *, unsigned int);
 
+#define	TRAS_F_ZERO	0x0001
+
+int tras_init_context(struct tras_ctx *, const struct tras_algo *, size_t, int);
+void tras_fini_context(struct tras_ctx *, int);
+
 #endif
