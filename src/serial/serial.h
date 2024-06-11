@@ -48,7 +48,7 @@ struct serial_params {
  * this implies that larger frequency table is 16MB long.
  */
 
-#define	SERIAL_MIN_M	1	/* min value of the serial test block */
+#define	SERIAL_MIN_M	2	/* min value of the serial test block */
 #define	SERIAL_MAX_M	24	/* practical restriction block size */
 
 TRAS_DECLARE_ALGO(serial);

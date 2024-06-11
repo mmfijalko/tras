@@ -28,6 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * The serial test.
  */
 
 #include <stdint.h>
@@ -35,14 +36,19 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include <tras.h>
+#include <cdefs.h>
 #include <serial.h>
 
+#include <stdio.h>
+
 /*
- * Context structure for serial test.
+ * Context structure for the serial test.
  */
 struct serial_ctx {
+	uint32_t	first;	/* first m - 1 bits for augmenting */
 	uint32_t 	block;	/* not full m bits or last m-1 bits */
 	unsigned int *	m0;	/* frequency table for m bits blocks */
 	unsigned int *	m1;	/* frequency table for m-1 bits blocks */
@@ -53,39 +59,6 @@ struct serial_ctx {
 };
 
 /*
- * Allocate and init context for serial test.
- */
-static int
-serial_alloc_context(struct tras_ctx *ctx, struct serial_params *p)
-{
-	struct serial_ctx *c;
-	unsigned int sm, me;
-
-	ctx->context = NULL;
-
-	sm = 1 << p->m;
-	me = sm + sm / 2 + sm / 4;
-
-	c = malloc(sizeof(struct serial_ctx) + me * sizeof(unsigned int));
-	if (c == NULL)
-		return (ENOMEM);
-
-	c->m0 = (unsigned int *)(c + 1);
-	c->m1 = (unsigned int *)(c->m0 + sm);
-	c->m2 = (unsigned int *)(c->m1 + sm / 2);
-
-	bzero(c->m0, me * sizeof(unsigned int));
-
-	c->m = p->m;
-	c->alpha = p->alpha;
-	c->nbits = 0;
-
-	ctx->context = c;
-
-	return (0);
-}
-
-/*
  * Calculate minimum number of bits for the serial test with block size.
  * Input size recommendation : m < floor(log_2(n)) - 2
  */
@@ -94,9 +67,7 @@ serial_min_bits(struct tras_ctx *ctx)
 {
 	struct serial_ctx *c = ctx->context;
 
-	/* todo: */
-
-	return (0);
+	return (pow(2, c->m + 2) + 1);
 }
 
 /*
@@ -106,7 +77,9 @@ int
 serial_init(struct tras_ctx *ctx, void *params)
 {
 	struct serial_params *p = params;
-	int error;
+	struct serial_ctx *c;
+	unsigned int sm, me;
+	int size, error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
@@ -118,16 +91,62 @@ serial_init(struct tras_ctx *ctx, void *params)
 	 * Notice: if m == 1 the test is frequency test.
 	 */
 
-	error = serial_alloc_context(ctx, p);
+	sm = 1 << p->m;
+	me = sm + sm / 2 + sm / 4;
+
+	size = sizeof(struct serial_ctx) + me * sizeof(unsigned int);
+
+	error = tras_init_context(ctx, &serial_algo, size, TRAS_F_ZERO);
 	if (error != 0) {
-		ctx->state = TRAS_STATE_NONE;
+//		ctx->state = TRAS_STATE_NONE;
 		return (error);
 	}
 
-	ctx->algo = &serial_algo;
-	ctx->state = TRAS_STATE_INIT;
+	c = ctx->context;
+
+	c->m0 = (unsigned int *)(c + 1);
+	c->m1 = (unsigned int *)(c->m0 + sm);
+	c->m2 = (unsigned int *)(c->m1 + sm / 2);
+
+	c->m = p->m;
+	c->alpha = p->alpha;
 
 	return (0);
+}
+
+/*
+ * Update state when first m - 1 bits are collected.
+ */
+static void
+serial_update_bits(struct serial_ctx *c, unsigned int offs, void *data,
+    unsigned int nbits)
+{
+	uint32_t block, m0, m1, m2;
+	uint8_t *p, m;
+	unsigned int n;
+
+	m0 = (1 << c->m) - 1;
+	m1 = (1 << (c->m - 1)) - 1;
+	m2 = (1 << (c->m - 2)) - 1;
+
+	p = (uint8_t *)data + offs / 8;
+	m = 0x80 >> (offs & 0x07);
+	n = nbits;
+
+	block = c->block;
+
+	while (n > 0) {
+		block = (block << 1) | ((*p & m) ? 1 : 0);
+		c->m0[block & m0]++;
+		c->m1[block & m1]++;
+		c->m2[block & m2]++;
+		if (m == 0) {
+			p++;
+			m = 0x80;
+		}
+		n--;
+	}
+	c->block = block;
 }
 
 /*
@@ -136,15 +155,59 @@ serial_init(struct tras_ctx *ctx, void *params)
 int
 serial_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
+	struct serial_ctx *c;
+	uint32_t block, m0, m1, m2;
+	unsigned int n, k, j, offs, i;
+	uint8_t *p, m;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
+	if (nbits == 0)
+		return (0);
+
+	c = ctx->context;
+	p = (uint8_t *)data;
+
+	m0 = (1 << c->m) - 1;
+	m1 = (1 << (c->m - 1)) - 1;
+	m2 = (1 << (c->m - 2)) - 1;
+
+	block = c->block;
 
 	/*
-	 * TODO: implementation.
+	 * Building first m - 1 bits block and context.
 	 */
+	k = c->nbits;
+	if (k < (c->m - 1)) {
+		n = c->m - 1 - c->nbits;
+		n = min(n, nbits);
+		offs = n;
+		while (n > 0) {
+			j = min(n, 8);
+			for (i = 0, m = 0x80; i < j; i++, m = m >> 1) {
+				block = (block << 1) | ((*p & m) ? 1 : 0);
+				k++;
+				if (k >= (c->m - 1))
+					c->m1[block & m1]++;
+				if (k >= (c->m - 2))
+					c->m2[block & m2]++;
+			}
+			n = n - j;
+			p++;
+		}
+		/* If collected store first m - 1 bits for augmenting */
+		if (k == (c->m - 1))
+			c->first = block;
+	}
 
-	return (ENOSYS);
+	/*
+	 * Ready to iterate with all blocks.
+	 */
+	serial_update_bits(c, offs, data, nbits - offs);
+
+	c->nbits += nbits;
+
+	return (0);
 }
 
 /*
@@ -155,10 +218,11 @@ serial_final(struct tras_ctx *ctx)
 {
 	struct serial_ctx *c;
 	unsigned int sv0, sv1, sv2;
-	unsigned int sm, m, n, i;
+	unsigned int sm, m, n, i, k;
 	double psim0, psim1, psim2;
 	double dpsim1, dpsim2;
 	double pvalue1, pvalue2;
+	uint8_t b;
 
 	TRAS_CHECK_FINAL(ctx);
 
@@ -167,9 +231,15 @@ serial_final(struct tras_ctx *ctx)
 	if (c->nbits < serial_min_bits(ctx))
 		return (EALREADY);
 
-	/*
-	 * TODO: check condition to finalize the test.
-	 */
+	n = c->m - 1;
+	c->first = c->first << (8 - (n & 0x07));
+	while (n > 0) {
+		k = (n + 7) / 8 * 8;
+		b = (uint8_t)((c->first >> k) & 0xff);
+		k = min(n, 8);
+		serial_update_bits(c, 0, &b, k);
+		n = n - k;
+	}
 
 	n = c->nbits;
 	m = c->m;
@@ -210,10 +280,12 @@ serial_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = n % c->m;
+	ctx->result.stats1 = dpsim1;
+	ctx->result.stats2 = dpsim2;
 	ctx->result.pvalue1 = pvalue1;
 	ctx->result.pvalue2 = pvalue2;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
