@@ -53,6 +53,7 @@
 #include <coron.h>
 #include <bspace.h>
 #include <craps.h>
+#include <serial.h>
 #include <chi2.h>
 
 #endif

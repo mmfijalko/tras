@@ -200,6 +200,11 @@ struct longruns_params longruns_params = {
 .version = 1,
 };
 
+struct serial_params serial_params = {
+	.m = 7,
+	.alpha = 0.01,
+};
+
 static const struct test_algo algo_list[] = {
 	{ "frequency", &frequency_algo, &frequency_params, 0 },
 	{ "sphere3d", &sphere3d_algo, &sphere3d_params, 0 },
@@ -243,7 +248,7 @@ static const struct test_algo algo_list[] = {
 	{ "operm5", NULL, NULL },
 	{ "oqso", NULL, NULL },
 	{ "ovlpsum", NULL, NULL }, 
-	{ "serial", NULL, NULL },
+	{ "serial", &serial_algo, &serial_params },
 	{ NULL, NULL, NULL },
 };
 
