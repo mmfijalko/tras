@@ -43,7 +43,6 @@
 #include <utils.h>
 #include <bits.h>
 
-#include <hamming8.h>
 #include <opso.h>
 
 /*
@@ -63,28 +62,21 @@ opso_init(struct tras_ctx *ctx, void *params)
 {
 	struct opso_params *p = params;
 	struct opso_ctx *c;
-	int size;
+	int size, error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	c = malloc(sizeof(struct opso_ctx) + OPSO_WORDS / 8);
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
-	}
+	size = sizeof(struct opso_ctx) + OPSO_WORDS / 8;
+
+	error = tras_init_context(ctx, &opso_algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+
 	c->wmap = (uint32_t *)(c + 1);
-	memset(c->wmap, 0, OPSO_WORDS / 8);
 
-	c->nbits = 0;
 	c->alpha = p->alpha;
-	c->letters = 0;
-	c->word = 0;
 	c->sparse = OPSO_WORDS;
-
-	ctx->context = c;
-	ctx->algo = &opso_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -169,9 +161,8 @@ opso_final(struct tras_ctx *ctx)
 
 	ctx->result.discard = c->nbits - OPSO_BITS;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
