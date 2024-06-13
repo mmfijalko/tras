@@ -43,8 +43,8 @@ struct approxe_params {
 #define	APPROXE_MAX_M		16
 
 /* Restrictions for number of bits, m < floor(log2(n)) - 5 */
-#define	APPROXE_MIN_BITS
-#define	APPROXE_MAX_BITS
+#define	APPROXE_MIN_BITS	/* ??? */
+#define	APPROXE_MAX_BITS	/* ??? */
 
 TRAS_DECLARE_ALGO(approxe);
 
