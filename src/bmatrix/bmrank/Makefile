@@ -1,12 +1,16 @@
+#
+# Building binary matrix rank test module Marek Marcin Fijałkowski, 2023
+#
 
+CC := cc
 CFLAGS=	-g
-CFLAGS+=-I${CURDIR}
-CFLAGS+=-I${CURDIR}/../include/
-CFLAGS+=-I${CURDIR}/../utils/
-CFLAGS+=-I${CURDIR}/../
 
-VPATH+=${CURDIR}/../utils/
-VPATH+=${CURDIR}/../tras/
+FAMDIR=${CURDIR}/../
+CFLAGS+=-I${FAMDIR}/../include/
+CFLAGS+=-I${FAMDIR}/../utils/
+
+VPATH+=${FAMDIR}/../utils/
+VPATH+=${FAMDIR}/../tras/
 
 LDFLAGS=-lm
 
