@@ -10,8 +10,8 @@ INC+=-I${CURDIR}/utils
 
 SUBDIR= frequency blkfreq lcomplex approxe bmatrix cusum \
 	excursion excursionv fourier maurer ntmatch otmatch \
-	runs serial brank31 brank32 brank68 sphere3d craps \
-	c1tsbits plot mindist opso oqso dna
+	runs serial bmatrix sphere3d craps c1tsbits plot \
+       	mindist opso oqso dna
 #SUBDIR+= squeeze c1tssbytes
 #SUBDIR+= tras utils
 
