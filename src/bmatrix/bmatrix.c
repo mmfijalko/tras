@@ -62,7 +62,26 @@
 #include <bmrank.h>
 #include <bmatrix.h>
 
-	#include <stdio.h>
+#ifdef TRAS_DEBUG
+
+static void
+binary_matrix32_show(uint32_t *bmatrix, unsigned int m, unsigned int n)
+{
+	unsigned int i, j;
+	uint32_t row, mask;
+
+	for (i = 0; i < m; i++) {
+		row = bmatrix[i];
+		mask = 0x80000000;
+		for (j = 0; j < n; j++) {
+			printf("%c ", (row & mask) ? '1' : '0');
+			mask = mask >> 1;
+		}
+		printf("\n");
+	}
+}
+
+#endif /* TRAS_DEBUG */
 
 struct bmatrix_ctx {
 	unsigned int	nmatx;	/* number of matrices processed */
