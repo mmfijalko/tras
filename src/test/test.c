@@ -200,6 +200,13 @@ struct longruns_params longruns_params = {
 .version = 1,
 };
 
+struct bmatrix_params bmatrix_params = {
+	.m = 32,
+	.q = 32,
+	.N = 38,
+	.alpha = 0.01,
+};
+
 static const struct test_algo algo_list[] = {
 	{ "frequency", &frequency_algo, &frequency_params, 0 },
 	{ "sphere3d", &sphere3d_algo, &sphere3d_params, 0 },
@@ -224,7 +231,7 @@ static const struct test_algo algo_list[] = {
 	{ "sphere3d", NULL, NULL },
 	{ "squeeze", &squeeze_algo, &squeeze_params },
 	{ "bkampmassey", NULL, NULL },
-	{ "bmatrix", NULL, NULL },
+	{ "bmatrix", &bmatrix_algo, &bmatrix_params },
 	{ "brank32", NULL, NULL },
 	{ "bspace", &bspace_algo, &bspace_params },
 	{ "c1tsbits", NULL, NULL },
