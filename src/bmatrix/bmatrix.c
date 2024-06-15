@@ -55,20 +55,54 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include <tras.h>
+#include <cdefs.h>
+#include <bmrank.h>
 #include <bmatrix.h>
 
+	#include <stdio.h>
+
 struct bmatrix_ctx {
-	unsigned int	nbits;	/* number of bits processed */
 	unsigned int	nmatx;	/* number of matrices processed */
 	unsigned int	fm0;	/* number of full rank matrices */
 	unsigned int	fm1;	/* number of full rank-1 matrices */
 	unsigned int	m;	/* number of rows in matrix */
 	unsigned int	q;	/* number of columns in matrix */
 	unsigned int	mq;	/* number of bits per matrix */
+	unsigned int	N;	/* number of matrices to process */
+	uint32_t *	bmtx;	/* the binary matrix from input */
+	double *	rprob;	/* the probabilities of ranks */
+	unsigned int	nbits;	/* number of bits processed */
 	double		alpha;	/* significance level for H0 */
 };
+
+/*
+ * Generate the list of probabilities for binary matrices ranks
+ * from r = 0 up to r = m, where m = min(M, Q). The size of the
+ * matrices are M x Q.
+ */
+static void
+bmatrix_rank_probs(double *p, unsigned int m, unsigned int q)
+{
+        int i, j, r;
+        double pr, ci;
+
+        r = (int)min(m, q); 
+
+        for (j = 0; j <= r; j++) {
+		/* constant index */
+		ci = (double)(j * ((int)m + (int)q - j) - (int)(m * q));
+                pr = pow(2.0, ci);
+                for (i = 0; i < (int)j; i++) {
+			pr = pr * (1.0 - pow(2.0, i - (int)q));
+			pr = pr * (1.0 - pow(2.0, i - (int)m));
+                        pr = pr / (1.0 - pow(2.0, i - j));
+                }
+                p[j] = pr;
+        }
+}
 
 int
 bmatrix_init(struct tras_ctx *ctx, void *params)
@@ -85,39 +119,105 @@ bmatrix_init(struct tras_ctx *ctx, void *params)
 	if (p->m > BMATRIX_MAX_M || p->q > BMATRIX_MAX_Q)
 		return (EINVAL);
 
-	size = sizeof(struct bmatrix_ctx);
+	size = sizeof(struct bmatrix_ctx) + p->m * sizeof(uint32_t) +
+	    (min(p->m, p->q) + 1) * sizeof(double);
 
 	error = tras_init_context(ctx, &bmatrix_algo, size, TRAS_F_ZERO);
 	if (error != 0)
 		return (0);
 
-	c->alpha = p->alpha;
+	c = ctx->context;
+
+	c->bmtx = (uint32_t *)(c + 1);
+	c->rprob = (double *)(c->bmtx + p->m);
+
 	c->m = p->m;
 	c->q = p->q;
-	c->mq = c->m * c->q;
+	c->mq = p->m * p->q;
+	c->N = p->N;
+
+	c->alpha = p->alpha;
+
+	return (0);
+}
+
+#define	__ISBIT(p, i)	((p)[(i) / 8] & (1 << ((i) & 0x07)))
+
+int
+bmatrix_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+	struct bmatrix_ctx *c;
+	unsigned int r, k;
+	unsigned int n, i, offs;
+	unsigned int rank;
+	uint32_t wmask;
+	uint8_t *p;
+
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
+	c = ctx->context;
+	p = (uint8_t *)data;
+
+	n = c->nbits % c->mq;
+	r = n / c->q;
+	k = n % c->q;
+
+	wmask = 0x00000001 << (31 - k);
+
+	for (i = 0; i < nbits; i++) {
+		c->bmtx[r] &= ~wmask;
+		c->bmtx[r] |= __ISBIT(p, i) ? wmask : 0;
+		k++;
+		if (k < c->q) {
+			wmask = wmask >> 1;
+			continue;
+		}
+
+		/* Full row at least */
+		k = 0;
+		r = r + 1;
+		wmask = 0x80000000;
+
+		/* Full matrix */
+		if (r < c->m) {
+			wmask = 0x80000000;
+			continue;
+		}
+		rank = binary_matrix_rank(c->bmtx, c->m, c->q);
+		if (rank == min(c->m, c->q))
+			c->fm0++;
+		else if (rank == (min(c->m, c->q) - 1))
+			c->fm1++;
+		c->nmatx++;
+		r = 0;
+	}
+	c->nbits += nbits;
 
 	return (0);
 }
 
 int
-bmatrix_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+bmatrix_update2(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
+
+	struct bmatrix_ctx *c;
+	unsigned int r, k;
+	unsigned int n, i, offs;
+	unsigned int rank;
+	uint32_t wmask;
+	uint8_t *p;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	/*
-	 * todo: implementation.
-	 */
-	return (ENOSYS);
+	return (0);
 }
 
 int
 bmatrix_final(struct tras_ctx *ctx)
 {
 	struct bmatrix_ctx *c;
-	double diffn, expt0, expt1, exptn;
-	double fmn, chi2, pvalue;
-	unsigned int n;
+	double expt, chi2, pvalue;
+	unsigned int m, fmn;
 
 	TRAS_CHECK_FINAL(ctx);
 
@@ -126,20 +226,32 @@ bmatrix_final(struct tras_ctx *ctx)
 	if (c->nmatx < BMATRIX_MIN_MATRICES)
 		return (EALREADY);
 
-	/* Calculate chi-square distribution statistics */
-	n = c->nmatx;
+	/*
+	 * Generate the probabilities table for the matrices ranks.
+	 */
+	bmatrix_rank_probs(c->rprob, c->m, c->q);
 
-	expt0 = 0.2888 * c->nmatx;
-	expt1 = 0.5776 * c->nmatx;
-	exptn = 0.1336 * c->nmatx;
-	diffn = (double)(n - c->fm0 + c->fm1);
+	/*
+	 * Calculate chi-square distribution statistics.
+	 */
+	m = min(c->m, c->q);
+	c->rprob[m - 2] = 1.0 - c->rprob[m - 1] - c->rprob[m];
 
-	chi2 = (c->fm0 - expt0) * (c->fm0 - expt0) / expt0 +
-	    (c->fm1 - expt1) * (c->fm1 - expt1) / expt1 +
-	    (diffn - exptn) * (diffn - exptn) / exptn;
+	fmn = c->nmatx - c->fm0 - c->fm1;
+	expt = c->rprob[m - 2] * c->nmatx;
+	chi2 = ((double)fmn - expt) * ((double)fmn - expt) / expt;
 
-	/* todo: here calculation of statistics */
-	pvalue = 0.0;
+	expt = c->rprob[m - 1] * c->nmatx;
+	chi2 += ((double)c->fm1 - expt) * ((double)c->fm1 - expt) / expt;
+
+	expt = c->rprob[m] * c->nmatx;
+	chi2 += ((double)c->fm0 - expt) * ((double)c->fm0 - expt) / expt;
+
+	/*
+	 * Since p-value = igamc(1, chi2(obs) / 2) it is equal:
+	 * pvalue = e ^ (-chi2(obs) / 2);
+	 */
+	pvalue = exp(-chi2 / 2.0);
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;

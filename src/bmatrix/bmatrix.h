@@ -38,9 +38,10 @@
  * The parameters for the Binary Matrix Rank Test.
  */
 struct bmatrix_params {
-	unsigned int	m;	/* number of rows for matrices */
-	unsigned int	q;	/* number of columns for matrices */
-	double		alpha;	/* significance level for H0 */
+	unsigned int	m;	/* the number of rows for matrices */
+	unsigned int	q;	/* the number of columns for matrices */
+	unsigned int	N;	/* the mininum number of matrices */
+	double		alpha;	/* the significance level for H0 */
 };
 
 /*
