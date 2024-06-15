@@ -38,7 +38,7 @@
 #include <math.h>
 
 #include <tras.h>
-#include <hamming8.h>
+// #include <hamming8.h>
 #include <utils.h>
 #include <bits.h>
 #include <brank32.h>
