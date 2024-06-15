@@ -59,8 +59,8 @@
 
 #include <tras.h>
 #include <cdefs.h>
-#include <bmrank.h>
 #include <bmatrix.h>
+#include <bmrank.h>
 
 #ifdef TRAS_DEBUG
 
@@ -83,7 +83,7 @@ binary_matrix32_show(uint32_t *bmatrix, unsigned int m, unsigned int n)
 
 #endif /* TRAS_DEBUG */
 
-struct bmatrix_ctx {
+struct bmrank_ctx {
 	unsigned int	nmatx;	/* number of matrices processed */
 	unsigned int	fm0;	/* number of full rank matrices */
 	unsigned int	fm1;	/* number of full rank-1 matrices */
@@ -103,7 +103,7 @@ struct bmatrix_ctx {
  * matrices are M x Q.
  */
 static void
-bmatrix_rank_probs(double *p, unsigned int m, unsigned int q)
+bmrank_rank_probs(double *p, unsigned int m, unsigned int q)
 {
         int i, j, r;
         double pr, ci;
@@ -124,24 +124,24 @@ bmatrix_rank_probs(double *p, unsigned int m, unsigned int q)
 }
 
 int
-bmatrix_init(struct tras_ctx *ctx, void *params)
+bmrank_init(struct tras_ctx *ctx, void *params)
 {
-	struct bmatrix_params *p = params;
-	struct bmatrix_ctx *c;
+	struct bmrank_params *p = params;
+	struct bmrank_ctx *c;
 	int size, error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	if (p->m < BMATRIX_MIN_M || p->q < BMATRIX_MIN_Q)
+	if (p->m < BMRANK_MIN_M || p->q < BMRANK_MIN_Q)
 		return (EINVAL);
-	if (p->m > BMATRIX_MAX_M || p->q > BMATRIX_MAX_Q)
+	if (p->m > BMRANK_MAX_M || p->q > BMRANK_MAX_Q)
 		return (EINVAL);
 
-	size = sizeof(struct bmatrix_ctx) + p->m * sizeof(uint32_t) +
+	size = sizeof(struct bmrank_ctx) + p->m * sizeof(uint32_t) +
 	    (min(p->m, p->q) + 1) * sizeof(double);
 
-	error = tras_init_context(ctx, &bmatrix_algo, size, TRAS_F_ZERO);
+	error = tras_init_context(ctx, &bmrank_algo, size, TRAS_F_ZERO);
 	if (error != 0)
 		return (0);
 
@@ -163,9 +163,9 @@ bmatrix_init(struct tras_ctx *ctx, void *params)
 #define	__ISBIT(p, i)	((p)[(i) / 8] & (1 << ((i) & 0x07)))
 
 int
-bmatrix_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+bmrank_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	struct bmatrix_ctx *c;
+	struct bmrank_ctx *c;
 	unsigned int r, k;
 	unsigned int n, i, offs;
 	unsigned int rank;
@@ -216,10 +216,10 @@ bmatrix_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 }
 
 int
-bmatrix_update2(struct tras_ctx *ctx, void *data, unsigned int nbits)
+bmrank_update2(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
-	struct bmatrix_ctx *c;
+	struct bmrank_ctx *c;
 	unsigned int r, k;
 	unsigned int n, i, offs;
 	unsigned int rank;
@@ -232,9 +232,9 @@ bmatrix_update2(struct tras_ctx *ctx, void *data, unsigned int nbits)
 }
 
 int
-bmatrix_final(struct tras_ctx *ctx)
+bmrank_final(struct tras_ctx *ctx)
 {
-	struct bmatrix_ctx *c;
+	struct bmrank_ctx *c;
 	double expt, chi2, pvalue;
 	unsigned int m, fmn;
 
@@ -242,13 +242,13 @@ bmatrix_final(struct tras_ctx *ctx)
 
 	c = ctx->context;
 
-	if (c->nmatx < BMATRIX_MIN_MATRICES)
+	if (c->nmatx < BMRANK_MIN_MATRICES)
 		return (EALREADY);
 
 	/*
 	 * Generate the probabilities table for the matrices ranks.
 	 */
-	bmatrix_rank_probs(c->rprob, c->m, c->q);
+	bmrank_rank_probs(c->rprob, c->m, c->q);
 
 	/*
 	 * Calculate chi-square distribution statistics.
@@ -287,35 +287,35 @@ bmatrix_final(struct tras_ctx *ctx)
 }
 
 int
-bmatrix_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
+bmrank_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
 	return (tras_do_test(ctx, data, nbits));
 }
 
 int
-bmatrix_restart(struct tras_ctx *ctx, void *params)
+bmrank_restart(struct tras_ctx *ctx, void *params)
 {
 
 	return (tras_do_restart(ctx, params));
 }
 
 int
-bmatrix_free(struct tras_ctx *ctx)
+bmrank_free(struct tras_ctx *ctx)
 {
 
 	return (tras_do_free(ctx));
 }
 
-const struct tras_algo bmatrix_algo = {
+const struct tras_algo bmrank_algo = {
 	.name =		"BMatrix",
 	.desc =		"Binary Matrix Rank Test",
 	.id =		0,
 	.version = 	{ 0, 1, 1 },
-	.init =		bmatrix_init,
-	.update =	bmatrix_update,
-	.test =		bmatrix_test,
-	.final =	bmatrix_final,
-	.restart =	bmatrix_restart,
-	.free =		bmatrix_free,
+	.init =		bmrank_init,
+	.update =	bmrank_update,
+	.test =		bmrank_test,
+	.final =	bmrank_final,
+	.restart =	bmrank_restart,
+	.free =		bmrank_free,
 };

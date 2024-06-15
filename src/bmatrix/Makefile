@@ -2,15 +2,18 @@
 # Building all binary matrices test Marek Marcin Fijałkowski, 2023
 #
 
-CC := cc
 CFLAGS= -g 
-INC= -I${CURDIR}
+CFLAGS+=-I${CURDIR}
+
+INC= -I${CURDIR}/
 INC+=-I${CURDIR}/include
 INC+=-I${CURDIR}/utils
 
-SUBDIR=	brank31 brank32 brank68
+SUBDIR=	bmrank brank31 brank32 brank68
 
-all:
+all: sub bmatrix.o
+
+sub:
 	for dir in ${SUBDIR}; do	\
 		${MAKE} -C $$dir;	\
 	done;

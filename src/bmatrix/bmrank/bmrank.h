@@ -30,14 +30,13 @@
  *
  */
 
-#ifndef __BMATRIX_H__
-#define	__BMATRIX_H__
-
+#ifndef __BMRANK_H__
+#define	__BMRANK_H__
 
 /*
  * The parameters for the Binary Matrix Rank Test.
  */
-struct bmatrix_params {
+struct bmrank_params {
 	unsigned int	m;	/* the number of rows for matrices */
 	unsigned int	q;	/* the number of columns for matrices */
 	unsigned int	N;	/* the mininum number of matrices */
@@ -47,25 +46,25 @@ struct bmatrix_params {
 /*
  * The minimum number of rows for each matrix, not defined yet.
  */
-#define	BMATRIX_MIN_M	16	/* XXX: temporary definition */
+#define	BMRANK_MIN_M	16	/* XXX: temporary definition */
 
-#define	BMATRIX_MAX_M	32	/* XXX: temporary definition */
+#define	BMRANK_MAX_M	32	/* XXX: temporary definition */
 
 /*
  * The minimum number of columns for each matrix, not defined yet.
  */
-#define	BMATRIX_MIN_Q	16	/* XXX: temporary definition */
+#define	BMRANK_MIN_Q	16	/* XXX: temporary definition */
 
-#define	BMATRIX_MAX_Q	32	/* XXX: temporary definition */
+#define	BMRANK_MAX_Q	32	/* XXX: temporary definition */
 
 /*
  * The minimum number of matrices to process for valid statistics.
  */
-#define	BMATRIX_MIN_MATRICES	38	/* min number of matrices */
+#define	BMRANK_MIN_MATRICES	38	/* min number of matrices */
 
-#define	BMATRIX_MAX_MATRICES	0	/* no restriction */
+#define	BMRANK_MAX_MATRICES	0	/* no restriction */
 
-TRAS_DECLARE_ALGO(bmatrix);
+TRAS_DECLARE_ALGO(bmrank);
 
 #endif
 
