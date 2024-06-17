@@ -41,7 +41,6 @@
 
 #include <tras.h>
 #include <cdefs.h>
-#include <hamming8.h>
 #include <utils.h>
 #include <bits.h>
 #include <bspace.h>
@@ -168,8 +167,10 @@ bspace_extract32(void *d, int o, int q)
 int
 bspace_init(struct tras_ctx *ctx, void *params)
 {
-	struct bspace_ctx *c;
 	struct bspace_params *p = params;
+	struct bspace_ctx *c;
+	size_t size;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
@@ -181,13 +182,16 @@ bspace_init(struct tras_ctx *ctx, void *params)
 
 	/* todo: check m, n nk */
 
-	c = malloc(sizeof(struct bspace_ctx) + p->nk * sizeof(unsigned int) +
+	size = sizeof(struct bspace_ctx) + p->nk * sizeof(unsigned int) +
 	    + p->m * sizeof(uint32_t) + p->m * sizeof(uint32_t) +
-	    p->nk * sizeof(double));
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
-	}
+	    p->nk * sizeof(double);
+
+	error = tras_init_context(ctx, &bspace_algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+
+	c = ctx->context;
+
 	c->K = (unsigned int *)(c + 1);
 	c->bdays = c->K + p->nk;
 	c->intvs = c->bdays + p->m;
@@ -200,14 +204,7 @@ bspace_init(struct tras_ctx *ctx, void *params)
 	c->q = p->q;
 	c->n = p->n;
 	c->nk = p->nk;
-	memset(c->K, 0, c->nk * sizeof(unsigned int));
-
-	c->nbits = 0;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &bspace_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -216,7 +213,7 @@ int
 bspace_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct bspace_ctx *c;
-	unsigned int r, b, s, n, i;
+	unsigned int b, s, n, i;
 	uint32_t *p;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
@@ -342,12 +339,9 @@ printf("K=%u\n", K);
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = c->nbits - c->nk * c->m * c->q;
-	ctx->result.stats1 = 0.0;
-	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
