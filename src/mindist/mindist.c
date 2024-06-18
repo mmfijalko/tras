@@ -38,12 +38,10 @@
 #include <math.h>
 
 #include <tras.h>
-#include <hamming8.h>
+#include <cdefs.h>
 #include <utils.h>
 #include <bits.h>
 #include <mindist.h>
-
-			#include <stdio.h>
 
 /*
  * Vector respresenting point in 2D space.
@@ -115,8 +113,10 @@ mindist_distance_min_pow2(struct point *points, unsigned int n)
 int
 mindist_init(struct tras_ctx *ctx, void *params)
 {
-	struct mindist_ctx *c;
 	struct mindist_params *p = params;
+	struct mindist_ctx *c;
+	size_t size;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
@@ -124,26 +124,17 @@ mindist_init(struct tras_ctx *ctx, void *params)
 	if (p->K < MINDIST_MIN_POINTS || p->K > MINDIST_MAX_POINTS)
 		return (EINVAL);
 
-	c = malloc(sizeof(struct mindist_ctx) + p->K * sizeof(struct point));
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
-	}
+	size = sizeof(struct mindist_ctx) + p->K * sizeof(struct point);
+
+	error = tras_init_context(ctx, &mindist_algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+
+	c = ctx->context;
 	c->points = (struct point *)(c + 1);
-	c->npoint = 0;
+
 	c->K = p->K;
-	c->nbits = 0;
 	c->alpha = p->alpha;
-
-	/*
-	 * TODO: consider to write a macro for generic init context.
-	 *
-	 * TRAS_INIT_CTX(ctx, c, &mindist_algo);
-	 */
-
-	ctx->context = c;
-	ctx->algo = &mindist_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -152,32 +143,46 @@ int
 mindist_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct mindist_ctx *c;
-	unsigned int n;
+	unsigned int n, b;
+	struct point *p;
 	uint32_t *d;
-	double *v;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	if (nbits == 0 || nbits & 0x01f)
+	if (nbits == 0)
+		return (0);
+	if (nbits & 0x01f)
 		return (EINVAL);
 
 	c = ctx->context;
 	d = (uint32_t *)data;	/* endianism ??? */
-	n = c->nbits / 32;
-	v = ((double *)c->points) + n;
+
+	/*
+	 * Get current number of coordinates updated.
+	 */
+	b = c->nbits / 32;
+	b = min(b, 2 * c->K);
+
+	/*
+	 * Get number of coordinates to update.
+	 */
+	n = 2 * c->K - b;
+	n = min(n, nbits / 32);
+	p = c->points + c->npoint;
+	while (n > 0) {
+		if (b & 0x01) {
+			p->y = mindist_point_component(*d);
+			c->npoint++;
+			p++;
+		} else {
+			p->x = mindist_point_component(*d);
+		}
+		b++;
+		d++;
+		n--;
+	}
 	c->nbits += nbits;
 
-	while (nbits > 0) {
-		if (c->npoint >= c->K)
-			break;
-		*v = mindist_point_component(*d);
-		v++;
-		d++;
-		n++;
-		if ((n & 0x01) == 0)
-			c->npoint++;
-		nbits -= 32;
-	}
 	return (0);
 }
 
@@ -195,11 +200,8 @@ mindist_final(struct tras_ctx *ctx)
 	if (c->npoint < c->K)
 		return (EALREADY);
 
-	/*
-	 * TODO: comment about statistics.
-	 */
-
 	d2min = mindist_distance_min_pow2(c->points, c->K);
+
 	mean = 0.995;
 	pvalue = 1.0 - exp(-d2min / mean);
 
@@ -212,7 +214,7 @@ mindist_final(struct tras_ctx *ctx)
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = d2min;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
