@@ -62,6 +62,7 @@ squeeze_init(struct tras_ctx *ctx, void *params)
 	struct squeeze_params *p = params;
 	struct squeeze_ctx *c;
 	size_t size;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
@@ -71,22 +72,17 @@ squeeze_init(struct tras_ctx *ctx, void *params)
 
 	size = sizeof(struct squeeze_ctx) + SQUEEZE_CHI_SQUARE_SLOTS *
 	    sizeof(unsigned int);
-	c = malloc(size);
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
-	}
+
+	error = tras_init_context(ctx, &squeeze_algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+
+	c = ctx->context;
 
 	c->freqt = (unsigned int *)(c + 1);
 	c->nfreq = SQUEEZE_CHI_SQUARE_SLOTS;
-	c->nbits = 0;
-	c->nint = 0;
 	c->K = p->K;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &squeeze_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -178,9 +174,8 @@ squeeze_final(struct tras_ctx *ctx)
 
 	ctx->result.discard = c->nbits - c->K * sizeof(unsigned int) * 8;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0.0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
