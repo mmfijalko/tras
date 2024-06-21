@@ -38,7 +38,7 @@
 #include <math.h>
 
 #include <tras.h>
-#include <hamming8.h>
+#include <cdefs.h>
 #include <utils.h>
 #include <bits.h>
 #include <operm5.h>
@@ -56,26 +56,23 @@ operm5_init(struct tras_ctx *ctx, void *params)
 {
 	struct operm5_ctx *c;
 	struct operm5_params *p = params;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	c = malloc(sizeof(struct operm5_ctx));
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
-	}
+	error = tras_init_context(ctx, &operm5_algo, sizeof(struct operm5_ctx),
+	    TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+
+	c = ctx->context;
 
 	/*
 	 * todo: other initializations when defined.
 	 */
 
-	c->nbits = 0;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &operm5_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -122,9 +119,8 @@ operm5_final(struct tras_ctx *ctx)
 
 	ctx->result.discard = c->nbits & 0x07;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
