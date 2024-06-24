@@ -91,27 +91,17 @@ c1tsbits_init(struct tras_ctx *ctx, void *params)
 {
 	struct c1tsbits_params *p = params;
 	struct c1tsbits_ctx *c;
-	int i;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	c = malloc(sizeof(struct c1tsbits_ctx));
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
-	}
+	error = tras_init_context(ctx, &c1tsbits_algo,
+	    sizeof(struct c1tsbits_ctx), TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
 
-	c->last = 0;
-	for (i = 0; i < 5; i++)
-		c->freq[i] = 0;
-
-	c->nbits = 0;
+	c = ctx->context;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &c1tsbits_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -205,8 +195,6 @@ c1tsbits_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 			c->last = *p & mmask8[r];
 	}
 
-	/* todo: implementation */
-
 	c->nbits += nbits;
 
 	return (0);
@@ -235,12 +223,9 @@ c1tsbits_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = c->nbits & 0x07;
-	ctx->result.stats1 = 0.0;
-	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }

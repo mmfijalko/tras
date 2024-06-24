@@ -33,9 +33,15 @@
 #ifndef __C1TSBITS_H__
 #define	__C1TSBITS_H__
 
+/*
+ * The Count-the-1's Test parameters
+ */
 struct c1tsbits_params {
 	double	alpha;	/* significance level for H0 */
 };
+
+#define	C1TSBITS_MIN_NBITS	0
+#define	C1TSBITS_MAX_NBITS	0
 
 TRAS_DECLARE_ALGO(c1tsbits);
 
