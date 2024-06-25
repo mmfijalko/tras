@@ -5,13 +5,16 @@ CFLAGS+=-I${CURDIR}/../
 CFLAGS+=-I${CURDIR}/../include/
 CFLAGS+=-I${CURDIR}/../utils/
 CFLAGS+=-I${CURDIR}/../math/
+CFLAGS+=-I${CURDIR}/../cephes/
 
 VPATH+=${CURDIR}/../utils/
 VPATH+=${CURDIR}/../tras/
 VPATH+=${CURDIR}/../math/
+VPATH+=${CURDIR}/../cephes/
 
+LDFLAGS=-lm
 
-all: approxe.o utils.o tras.o lentz_gamma.o
+all: approxe.o utils.o tras.o lentz_gamma.o igamc.o
 
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@

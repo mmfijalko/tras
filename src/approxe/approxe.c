@@ -43,6 +43,7 @@
 #include <const.h>
 #include <approxe.h>
 #include <lentz_gamma.h>
+#include <igamc.h>
 
 #include <stdio.h>
 
@@ -247,13 +248,13 @@ approxe_final(struct tras_ctx *ctx)
 	 * igammac implementation yet.
 	 * pvalue = igamc(2 ^ (m - 1), chi2 / 2);
 	 */
+	pvalue = igamc(1 << (c->m - 1), stats / 2.0);
+
 #if 0
 	pvalue = lentz2_gamma((double)(1 << (c->m - 1)), stats / 2.0, 10e-32, &error);
 printf("getting lentz gamma (%g, %g) = %.16g\n",
     (double)(1 << (c->m - 1)), stats / 2.0, pvalue);
 	pvalue = pvalue / tgamma((double)(1 << (c->m - 1)));
-#else
-	pvalue = 0.0;
 #endif
 
 	if (pvalue < c->alpha)
