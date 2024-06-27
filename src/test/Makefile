@@ -25,6 +25,7 @@ CFLAGS+=-I${CURDIR}/../bspace/
 CFLAGS+=-I${CURDIR}/../craps/
 CFLAGS+=-I${CURDIR}/../chi2/
 CFLAGS+=-I${CURDIR}/../bmatrix/
+CFLAGS+=-I${CURDIR}/../bmatrix/bmrank/
 
 VPATH+=${CURDIR}/../utils/
 VPATH+=${CURDIR}/../tras/
@@ -51,6 +52,7 @@ VPATH+=${CURDIR}/../bspace/
 VPATH+=${CURDIR}/../craps/
 VPATH+=${CURDIR}/../chi2/
 VPATH+=${CURDIR}/../bmatrix/
+VPATH+=${CURDIR}/../bmatrix/bmrank/
 
 LDFLAGS=-lm
 

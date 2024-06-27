@@ -159,6 +159,5 @@ const struct tras_algo brank32_algo = {
 	.test =		brank32_test,
 	.final =	brank32_final,
 	.restart =	brank32_restart,
-	.free =		tras_do_free,
-//	.free =		brank32_free,
+	.free =		brank32_free,
 };

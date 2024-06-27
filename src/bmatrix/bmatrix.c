@@ -53,7 +53,6 @@
  *
  * Returns: the rank of the m x binary matrix.
  */
-
 unsigned int
 binary_matrix_rank(uint32_t *bmatrix, unsigned int m, unsigned int n)
 {

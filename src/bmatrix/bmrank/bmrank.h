@@ -37,8 +37,11 @@
  * The parameters for the Binary Matrix Rank Test.
  */
 struct bmrank_params {
+	int		uniform;/* take always full 32-bits words */
 	unsigned int	m;	/* the number of rows for matrices */
 	unsigned int	q;	/* the number of columns for matrices */
+	unsigned int	nr;	/* the number of ranks for chi-2 */
+	unsigned int	s0;	/* the start bit in the 32-bits word */
 	unsigned int	N;	/* the mininum number of matrices */
 	double		alpha;	/* the significance level for H0 */
 };

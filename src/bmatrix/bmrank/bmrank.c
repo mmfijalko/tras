@@ -93,6 +93,10 @@ struct bmrank_ctx {
 	unsigned int	N;	/* number of matrices to process */
 	uint32_t *	bmtx;	/* the binary matrix from input */
 	double *	rprob;	/* the probabilities of ranks */
+	unsigned int *	rfreq;	/* the ranks frequencies */
+	unsigned int	nr;	/* */
+	unsigned int	s0;	/* */
+	int		uniform;/* */
 	unsigned int	nbits;	/* number of bits processed */
 	double		alpha;	/* significance level for H0 */
 };
@@ -123,37 +127,63 @@ bmrank_rank_probs(double *p, unsigned int m, unsigned int q)
         }
 }
 
-int
-bmrank_init(struct tras_ctx *ctx, void *params)
+static int
+bmrank_check_params(struct tras_ctx *ctx, struct bmrank_params *p)
 {
-	struct bmrank_params *p = params;
-	struct bmrank_ctx *c;
-	int size, error;
 
-	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
 	if (p->m < BMRANK_MIN_M || p->q < BMRANK_MIN_Q)
 		return (EINVAL);
 	if (p->m > BMRANK_MAX_M || p->q > BMRANK_MAX_Q)
 		return (EINVAL);
+	if (p->s0 + p->q > BMRANK_MAX_Q)
+		return (EINVAL);
+	if (p->nr > min(p->m, p->q))
+		return (EINVAL);
+	if (p->N == 0)
+		return (EINVAL);
 
-	size = sizeof(struct bmrank_ctx) + p->m * sizeof(uint32_t) +
-	    (min(p->m, p->q) + 1) * sizeof(double);
+	return (0);
+}
+
+int
+bmrank_init(struct tras_ctx *ctx, void *params)
+{
+	struct bmrank_params *p = params;
+	struct bmrank_ctx *c;
+	unsigned int maxr;
+	int size, error;
+
+	TRAS_CHECK_INIT(ctx);
+
+	error = bmrank_check_params(ctx, p);
+	if (error != 0)
+		return (error);
+
+	maxr = min(p->m, p->q);
+
+	size = sizeof(struct bmrank_ctx);
+	size += p->m * sizeof(uint32_t);
+	size += (maxr + 1) * sizeof(double);
+	size += (maxr + 1) * sizeof(unsigned int);
 
 	error = tras_init_context(ctx, &bmrank_algo, size, TRAS_F_ZERO);
 	if (error != 0)
 		return (0);
-
 	c = ctx->context;
 
 	c->bmtx = (uint32_t *)(c + 1);
 	c->rprob = (double *)(c->bmtx + p->m);
+	c->rfreq = (unsigned int *)(c->rprob + maxr + 1);
 
 	c->m = p->m;
 	c->q = p->q;
 	c->mq = p->m * p->q;
 	c->N = p->N;
+	c->s0 = p->s0;
+	c->nr = p->nr;
+	c->uniform = p->uniform;
 
 	c->alpha = p->alpha;
 
@@ -162,19 +192,13 @@ bmrank_init(struct tras_ctx *ctx, void *params)
 
 #define	__ISBIT(p, i)	((p)[(i) / 8] & (1 << ((i) & 0x07)))
 
-int
-bmrank_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+static int
+bmrank_update_bybits(struct bmrank_ctx *c, void *data, unsigned int nbits)
 {
-	struct bmrank_ctx *c;
-	unsigned int r, k;
-	unsigned int n, i, offs;
-	unsigned int rank;
+	unsigned int n, i, offs, r, k, rank;
 	uint32_t wmask;
 	uint8_t *p;
 
-	TRAS_CHECK_UPDATE(ctx, data, nbits);
-
-	c = ctx->context;
 	p = (uint8_t *)data;
 
 	n = c->nbits % c->mq;
@@ -215,20 +239,76 @@ bmrank_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (0);
 }
 
-int
-bmrank_update2(struct tras_ctx *ctx, void *data, unsigned int nbits)
+static int
+bmrank_update_bybits2(struct bmrank_ctx *c, uint8_t *p, unsigned int nbits)
+{
+	unsigned int i, j, k, n, r;
+	uint32_t mask;
+
+	/* Get the current row and column in the partial matrix */
+	n = c->nbits % c->mq;
+	r = n / c->q;
+	k = n % c->q;
+
+	/* How many bits can the loop below update */
+	n = min(c->N * c->mq, c->nbits);
+	n = c->N * c->mq - n;
+	n = min(n, nbits);
+
+	/* Set initial mask for current column */
+	mask = 0x80000000 >> k;
+
+	j = k;
+	i = 0;
+	while (n > 0) {
+		/* At most k bits for the current matrix */
+		k = (c->m - r) * c->q - k;
+		k = min(k, n);
+	
+		/* Fill the matrix with k bits starting from i-th bit */
+		for (k = i + k; i < k; i++) {
+			c->bmtx[r] |= __ISBIT(p, i) ? mask : 0;
+			if (++j >= c->q) {
+				mask = 0x80000000;
+				r++;
+				j = 0;
+			}
+		}
+		/* Calculate the full binary matrix rank and store it */
+		if (r >= c->m) {
+			r = binary_matrix_rank(c->bmtx, c->m, c->q);
+			c->rfreq[r];
+			c->nmatx++;
+		}
+		/* If the matrix is not fully filled the loop will end anyway */
+		n = n - k;
+		r = k = j = 0;
+	}
+	c->nbits += nbits;
+
+	return (0);
+}
+
+static int
+bmrank_update_byword(struct bmrank_ctx *c, uint8_t *p, unsigned int nbits)
 {
 
+	return (ENOSYS);
+}
+
+int
+bmrank_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
 	struct bmrank_ctx *c;
-	unsigned int r, k;
-	unsigned int n, i, offs;
-	unsigned int rank;
-	uint32_t wmask;
-	uint8_t *p;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	return (0);
+	c = ctx->context;
+
+	if (c->uniform)
+		return (bmrank_update_byword(ctx->context, data, nbits));
+	else
+		return (bmrank_update_bybits(ctx->context, data, nbits));
 }
 
 int
