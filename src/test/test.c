@@ -210,6 +210,16 @@ struct bmrank_params bmrank_params = {
 	.alpha = 0.01,
 };
 
+struct bmrank_params bmrank_params_uniform = {
+	.uniform = 1,
+	.m = 32,
+	.q = 32,
+	.nr = 2,
+	.s0 = 0,
+	.N = 38,
+	.alpha = 0.01,
+};
+
 static const struct test_algo algo_list[] = {
 	{ "frequency", &frequency_algo, &frequency_params, 0 },
 	{ "sphere3d", &sphere3d_algo, &sphere3d_params, 0 },
@@ -234,9 +244,13 @@ static const struct test_algo algo_list[] = {
 	{ "sphere3d", NULL, NULL },
 	{ "squeeze", &squeeze_algo, &squeeze_params },
 	{ "bkampmassey", NULL, NULL },
+
 	{ "bmrank", &bmrank_algo, &bmrank_params },
+	{ "bmrank_uniform", &bmrank_algo, &bmrank_params_uniform },
+
 	{ "bmatrix", NULL, NULL },
 	{ "brank32", NULL, NULL },
+
 	{ "bspace", &bspace_algo, &bspace_params },
 	{ "c1tsbits", NULL, NULL },
 	{ "craps", &craps_algo, &craps_params },
