@@ -339,7 +339,7 @@ bmrank_final(struct tras_ctx *ctx)
 
 	c = ctx->context;
 
-	if (c->nmatx < BMRANK_MIN_MATRICES)
+	if (c->nmatx < c->N)
 		return (EALREADY);
 
 	/*
