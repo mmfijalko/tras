@@ -56,5 +56,6 @@
 #include <chi2.h>
 #include <bmatrix.h>
 #include <bmrank.h>
+#include <brank31.h>
 
 #endif

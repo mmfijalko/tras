@@ -220,13 +220,15 @@ struct bmrank_params bmrank_params_uniform = {
 	.alpha = 0.01,
 };
 
+struct brank31_params brank31_params = {
+	.alpha = 0.1,
+};
+
 static const struct test_algo algo_list[] = {
 	{ "frequency", &frequency_algo, &frequency_params, 0 },
 	{ "sphere3d", &sphere3d_algo, &sphere3d_params, 0 },
 	{ "approxe", &approxe_algo, &approxe_params },
 	{ "blkfreq", &blkfreq_algo, &blkfreq_params },
-	{ "brank31", NULL, NULL },
-	{ "brank68", NULL, NULL },
 	{ "bstream", &bstream_algo, &bstream_params },
 	{ "c1tssbytes", NULL, NULL },
 	{ "cusum", &cusum_algo, &cusum_params_fw },
@@ -250,6 +252,8 @@ static const struct test_algo algo_list[] = {
 
 	{ "bmatrix", NULL, NULL },
 	{ "brank32", NULL, NULL },
+	{ "brank31", &brank31_algo, &brank31_params },
+	{ "brank68", NULL, NULL },
 
 	{ "bspace", &bspace_algo, &bspace_params },
 	{ "c1tsbits", NULL, NULL },
