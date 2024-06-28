@@ -62,6 +62,9 @@
 #include <bmatrix.h>
 #include <bmrank.h>
 
+	#include <stdio.h>
+#undef	TRAS_DEBUG
+
 #ifdef TRAS_DEBUG
 
 static void
@@ -81,12 +84,12 @@ binary_matrix32_show(uint32_t *bmatrix, unsigned int m, unsigned int n)
 	}
 }
 
-#endif /* TRAS_DEBUG */
+#else /* TRAS_DEBUG */
+#define	binary_matrix32_show(bm, m, n)
+#endif
 
 struct bmrank_ctx {
 	unsigned int	nmatx;	/* number of matrices processed */
-	unsigned int	fm0;	/* number of full rank matrices */
-	unsigned int	fm1;	/* number of full rank-1 matrices */
 	unsigned int	m;	/* number of rows in matrix */
 	unsigned int	q;	/* number of columns in matrix */
 	unsigned int	mq;	/* number of bits per matrix */
@@ -137,7 +140,7 @@ bmrank_check_params(struct tras_ctx *ctx, struct bmrank_params *p)
 		return (EINVAL);
 	if (p->m > BMRANK_MAX_M || p->q > BMRANK_MAX_Q)
 		return (EINVAL);
-	if (p->s0 + p->q > BMRANK_MAX_Q)
+	if (p->uniform && (p->s0 + p->q > BMRANK_MAX_Q))
 		return (EINVAL);
 	if (p->nr > min(p->m, p->q))
 		return (EINVAL);
@@ -190,59 +193,12 @@ bmrank_init(struct tras_ctx *ctx, void *params)
 	return (0);
 }
 
-#define	__ISBIT(p, i)	((p)[(i) / 8] & (1 << ((i) & 0x07)))
+#define	__ISBIT(p, i)	((p)[(i) / 8] & (0x80 >> ((i) & 0x07)))
 
 static int
-bmrank_update_bybits(struct bmrank_ctx *c, void *data, unsigned int nbits)
+bmrank_update_bybits(struct bmrank_ctx *c, uint8_t *p, unsigned int nbits)
 {
-	unsigned int n, i, offs, r, k, rank;
-	uint32_t wmask;
-	uint8_t *p;
-
-	p = (uint8_t *)data;
-
-	n = c->nbits % c->mq;
-	r = n / c->q;
-	k = n % c->q;
-
-	wmask = 0x00000001 << (31 - k);
-
-	for (i = 0; i < nbits; i++) {
-		c->bmtx[r] &= ~wmask;
-		c->bmtx[r] |= __ISBIT(p, i) ? wmask : 0;
-		k++;
-		if (k < c->q) {
-			wmask = wmask >> 1;
-			continue;
-		}
-
-		/* Full row at least */
-		k = 0;
-		r = r + 1;
-		wmask = 0x80000000;
-
-		/* Full matrix */
-		if (r < c->m) {
-			wmask = 0x80000000;
-			continue;
-		}
-		rank = binary_matrix_rank(c->bmtx, c->m, c->q);
-		if (rank == min(c->m, c->q))
-			c->fm0++;
-		else if (rank == (min(c->m, c->q) - 1))
-			c->fm1++;
-		c->nmatx++;
-		r = 0;
-	}
-	c->nbits += nbits;
-
-	return (0);
-}
-
-static int
-bmrank_update_bybits2(struct bmrank_ctx *c, uint8_t *p, unsigned int nbits)
-{
-	unsigned int i, j, k, n, r;
+	unsigned int i, j, k, n, r, b;
 	uint32_t mask;
 
 	/* Get the current row and column in the partial matrix */
@@ -259,27 +215,40 @@ bmrank_update_bybits2(struct bmrank_ctx *c, uint8_t *p, unsigned int nbits)
 	mask = 0x80000000 >> k;
 
 	j = k;
-	i = 0;
+	b = 0;
 	while (n > 0) {
 		/* At most k bits for the current matrix */
 		k = (c->m - r) * c->q - k;
 		k = min(k, n);
-	
+
 		/* Fill the matrix with k bits starting from i-th bit */
-		for (k = i + k; i < k; i++) {
-			c->bmtx[r] |= __ISBIT(p, i) ? mask : 0;
+		for (i = 0; i < k; i++, b++) {
+			if (__ISBIT(p, b))
+				c->bmtx[r] |= mask;
+			else
+				c->bmtx[r] &= ~mask;
+
+#if 0
+printf("bit b = %u, mask = 0x%08x, value = ", b, mask);
+printf("%c ", __ISBIT(p, b) ? '1' : '0');
+printf(", byte = 0x%02x\n", p[b/8]);
+#endif
 			if (++j >= c->q) {
 				mask = 0x80000000;
 				r++;
 				j = 0;
+			} else {
+				mask = mask >> 1;
 			}
 		}
 		/* Calculate the full binary matrix rank and store it */
 		if (r >= c->m) {
+binary_matrix32_show(c->bmtx, c->m, c->q);
 			r = binary_matrix_rank(c->bmtx, c->m, c->q);
-			c->rfreq[r];
+			c->rfreq[r]++;
 			c->nmatx++;
 		}
+
 		/* If the matrix is not fully filled the loop will end anyway */
 		n = n - k;
 		r = k = j = 0;
@@ -289,11 +258,59 @@ bmrank_update_bybits2(struct bmrank_ctx *c, uint8_t *p, unsigned int nbits)
 	return (0);
 }
 
+static inline uint32_t
+bmrank_be32enc(void *d)
+{
+	uint8_t *p = (uint8_t *)d;
+
+	return (((uint32_t)p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]);
+}
+
 static int
 bmrank_update_byword(struct bmrank_ctx *c, uint8_t *p, unsigned int nbits)
 {
+	unsigned int i, n, r, k, w;
+	uint32_t mask, word;
 
-	return (ENOSYS);
+	if (nbits & 0x1f)
+		return (EINVAL);
+
+	/* Get the number of 32-bits words updated */
+	w = c->nbits / 32;
+
+	/* Get the current row and column in the partial matrix */
+	r = w % c->m;
+
+	/* How many words can the loop below update */
+	n = min(c->N * c->mq, w * c->q);
+	n = c->N * c->mq - n;
+	n = n / c->q;
+	n = min(n, nbits / 32);
+
+	while (n > 0) {
+		k = c->m - r;
+		k = min(n, k);
+		for (i = 0; i < k; i++, r++) {
+			c->bmtx[r] = bmrank_be32enc(p) << c->s0;
+			p += 4;
+		}
+
+		/* Calculate the full binary matrix rank and store it */
+		if (r >= c->m) {
+binary_matrix32_show(c->bmtx, c->m, c->q);
+			r = binary_matrix_rank(c->bmtx, c->m, c->q);
+			c->rfreq[r]++;
+			c->nmatx++;
+		}
+
+		/* If the matrix is not fully filled the loop will end anyway */
+		n = n - k;
+		r = 0;
+	}
+
+	c->nbits += nbits;
+
+	return (0);
 }
 
 int
@@ -315,8 +332,8 @@ int
 bmrank_final(struct tras_ctx *ctx)
 {
 	struct bmrank_ctx *c;
-	double expt, chi2, pvalue;
-	unsigned int m, fmn;
+	double expt, chi2, pvalue, expd;
+	unsigned int i, m, fmn;
 
 	TRAS_CHECK_FINAL(ctx);
 
@@ -334,17 +351,20 @@ bmrank_final(struct tras_ctx *ctx)
 	 * Calculate chi-square distribution statistics.
 	 */
 	m = min(c->m, c->q);
-	c->rprob[m - 2] = 1.0 - c->rprob[m - 1] - c->rprob[m];
 
-	fmn = c->nmatx - c->fm0 - c->fm1;
-	expt = c->rprob[m - 2] * c->nmatx;
-	chi2 = ((double)fmn - expt) * ((double)fmn - expt) / expt;
+	c->rprob[m - c->nr] = 1.0;
+	c->rfreq[m - c->nr] = c->nmatx;
 
-	expt = c->rprob[m - 1] * c->nmatx;
-	chi2 += ((double)c->fm1 - expt) * ((double)c->fm1 - expt) / expt;
+	for (i = 0; i < c->nr; i++) {
+		c->rprob[m - c->nr] -= c->rprob[m - i];
+		c->rfreq[m - c->nr] -= c->rfreq[m - i];
+	}
 
-	expt = c->rprob[m] * c->nmatx;
-	chi2 += ((double)c->fm0 - expt) * ((double)c->fm0 - expt) / expt;
+	for (i = 0, chi2 = 0.0; i <= c->nr; i++) {
+		expt = c->rprob[m - i] * c->nmatx;
+		expd = (double)c->rfreq[m - i] - expt;
+		chi2 += expd * expd / expt;
+	}
 
 	/*
 	 * Since p-value = igamc(1, chi2(obs) / 2) it is equal:
