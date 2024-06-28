@@ -57,15 +57,14 @@ unsigned int
 binary_matrix_rank(uint32_t *bmatrix, unsigned int m, unsigned int n)
 {
 	unsigned int h, k, j, i;
-	uint32_t kmask, rmask, t;
+	uint32_t kmask, t;
 
-	h = k = 1;
+	kmask = 0x80000000;
 
 	for (k = 0, h = 0; k < n && h < m; k++) {
 		/*
 		 * Find the pivot, row index.
 		 */
-		kmask = 1 << (31 - k); 
 		for (i = h; i < m; i++) {
 			if (bmatrix[i] & kmask)
 				break;
@@ -84,15 +83,13 @@ binary_matrix_rank(uint32_t *bmatrix, unsigned int m, unsigned int n)
 			 * Do for all rows below pivot row.
 			 */
 			for (i = h + 1; i < m; i++) {
-				if (bmatrix[i] & kmask) {
-					rmask = 1 << (31 - k);
+				if (bmatrix[i] & kmask)
 					bmatrix[i] ^= bmatrix[h];
-				}
 			}
 			h++;
 		}
+		kmask = kmask >> 1;
 	}
 
 	return (h);
 }
-
