@@ -62,32 +62,6 @@
 #include <bmatrix.h>
 #include <bmrank.h>
 
-	#include <stdio.h>
-#undef	TRAS_DEBUG
-
-#ifdef TRAS_DEBUG
-
-static void
-binary_matrix32_show(uint32_t *bmatrix, unsigned int m, unsigned int n)
-{
-	unsigned int i, j;
-	uint32_t row, mask;
-
-	for (i = 0; i < m; i++) {
-		row = bmatrix[i];
-		mask = 0x80000000;
-		for (j = 0; j < n; j++) {
-			printf("%c ", (row & mask) ? '1' : '0');
-			mask = mask >> 1;
-		}
-		printf("\n");
-	}
-}
-
-#else /* TRAS_DEBUG */
-#define	binary_matrix32_show(bm, m, n)
-#endif
-
 struct bmrank_ctx {
 	unsigned int	nmatx;	/* number of matrices processed */
 	unsigned int	m;	/* number of rows in matrix */
@@ -97,9 +71,9 @@ struct bmrank_ctx {
 	uint32_t *	bmtx;	/* the binary matrix from input */
 	double *	rprob;	/* the probabilities of ranks */
 	unsigned int *	rfreq;	/* the ranks frequencies */
-	unsigned int	nr;	/* */
-	unsigned int	s0;	/* */
-	int		uniform;/* */
+	unsigned int	nr;	/* number of frequencies for chi-2 */
+	unsigned int	s0;	/* the start position in the word */
+	int		uniform;/* treat input as 32-bits words */
 	unsigned int	nbits;	/* number of bits processed */
 	double		alpha;	/* significance level for H0 */
 };
@@ -227,12 +201,6 @@ bmrank_update_bybits(struct bmrank_ctx *c, uint8_t *p, unsigned int nbits)
 				c->bmtx[r] |= mask;
 			else
 				c->bmtx[r] &= ~mask;
-
-#if 0
-printf("bit b = %u, mask = 0x%08x, value = ", b, mask);
-printf("%c ", __ISBIT(p, b) ? '1' : '0');
-printf(", byte = 0x%02x\n", p[b/8]);
-#endif
 			if (++j >= c->q) {
 				mask = 0x80000000;
 				r++;
@@ -243,7 +211,6 @@ printf(", byte = 0x%02x\n", p[b/8]);
 		}
 		/* Calculate the full binary matrix rank and store it */
 		if (r >= c->m) {
-binary_matrix32_show(c->bmtx, c->m, c->q);
 			r = binary_matrix_rank(c->bmtx, c->m, c->q);
 			c->rfreq[r]++;
 			c->nmatx++;
@@ -297,7 +264,6 @@ bmrank_update_byword(struct bmrank_ctx *c, uint8_t *p, unsigned int nbits)
 
 		/* Calculate the full binary matrix rank and store it */
 		if (r >= c->m) {
-binary_matrix32_show(c->bmtx, c->m, c->q);
 			r = binary_matrix_rank(c->bmtx, c->m, c->q);
 			c->rfreq[r]++;
 			c->nmatx++;

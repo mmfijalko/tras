@@ -49,23 +49,26 @@ struct bmrank_params {
 /*
  * The minimum number of rows for each matrix, not defined yet.
  */
-#define	BMRANK_MIN_M	16	/* XXX: temporary definition */
+#define	BMRANK_MIN_M	1	/* XXX: temporary definition */
 
 #define	BMRANK_MAX_M	32	/* XXX: temporary definition */
 
 /*
  * The minimum number of columns for each matrix, not defined yet.
  */
-#define	BMRANK_MIN_Q	16	/* XXX: temporary definition */
+#define	BMRANK_MIN_Q	1	/* XXX: temporary definition */
 
 #define	BMRANK_MAX_Q	32	/* XXX: temporary definition */
 
+#ifdef __not_anymore__
 /*
  * The minimum number of matrices to process for valid statistics.
  */
 #define	BMRANK_MIN_MATRICES	38	/* min number of matrices */
 
 #define	BMRANK_MAX_MATRICES	0	/* no restriction */
+
+#endif
 
 TRAS_DECLARE_ALGO(bmrank);
 
