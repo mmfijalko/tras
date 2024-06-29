@@ -81,31 +81,26 @@ static int state_map[8] = {-4, -3, -2, -1, 1, 2, 3, 4};
 int
 excursion_init(struct tras_ctx *ctx, void *params)
 {
-	struct excursion_ctx *c;
 	struct excursion_params *p = params;
+	struct excursion_ctx *c;
+	size_t size;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	c = malloc(sizeof(struct excursion_ctx) + 8 * sizeof(unsigned int) +
-	    8 * 6 * sizeof(unsigned int));
-	if (c == NULL)
-		return (ENOMEM);
+	size = sizeof(struct excursion_ctx) + 8 * sizeof(unsigned int) +
+	    8 * 6 * sizeof(unsigned int);
 
-	c->state = 0;
-	c->cycle = 0;
+	error = tras_init_context(ctx, &excursion_algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+	c = ctx->context;
+
 	c->cfreq = (unsigned int *)(c + 1);
 	c->sfreq = (unsigned int *)(c->cfreq + 8);
 
-	memset(c->cfreq, 0, 8 * sizeof(unsigned int));
-	memset(c->sfreq, 0, 8 * 6 * sizeof(unsigned int));
-
-	c->nbits = 0;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &excursion_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -271,12 +266,10 @@ excursion_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = -1;
-	ctx->result.stats1 = 0.0;
-	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvmin;
 	ctx->result.pvalue2 = pvmax;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
