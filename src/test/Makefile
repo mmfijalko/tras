@@ -27,6 +27,7 @@ CFLAGS+=-I${CURDIR}/../chi2/
 CFLAGS+=-I${CURDIR}/../bmatrix/
 CFLAGS+=-I${CURDIR}/../bmatrix/bmrank/
 CFLAGS+=-I${CURDIR}/../bmatrix/brank31/
+CFLAGS+=-I${CURDIR}/../bmatrix/brank68/
 
 VPATH+=${CURDIR}/../utils/
 VPATH+=${CURDIR}/../tras/
@@ -55,6 +56,7 @@ VPATH+=${CURDIR}/../chi2/
 VPATH+=${CURDIR}/../bmatrix/
 VPATH+=${CURDIR}/../bmatrix/bmrank/
 VPATH+=${CURDIR}/../bmatrix/brank31/
+VPATH+=${CURDIR}/../bmatrix/brank68/
 
 LDFLAGS=-lm
 
@@ -63,7 +65,8 @@ all: test
 test: test.o hamming8.o utils.o tras.o frequency.o runs.o blkfreq.o sphere3d.o \
       mindist.o plot.o squeeze.o approxe.o sparse.o opso.o dna.o bstream.o \
       cusum.o chi2.o excursionv.o excursion.o universal.o maurer.o coron.o \
-      longruns.o bspace.o craps.o bmatrix.o bmrank.o lentz_gamma.o brank31.o
+      longruns.o bspace.o craps.o bmatrix.o bmrank.o lentz_gamma.o brank31.o \
+      brank68.o
 	${CC} $^ ${LDFLAGS} -o test
 
 %.o: %.c

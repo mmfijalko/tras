@@ -224,6 +224,11 @@ struct brank31_params brank31_params = {
 	.alpha = 0.1,
 };
 
+struct brank68_params brank68_params = {
+	.byte = 0,
+	.alpha = 0.1,
+};
+
 static const struct test_algo algo_list[] = {
 	{ "frequency", &frequency_algo, &frequency_params, 0 },
 	{ "sphere3d", &sphere3d_algo, &sphere3d_params, 0 },
@@ -253,7 +258,7 @@ static const struct test_algo algo_list[] = {
 	{ "bmatrix", NULL, NULL },
 	{ "brank32", NULL, NULL },
 	{ "brank31", &brank31_algo, &brank31_params },
-	{ "brank68", NULL, NULL },
+	{ "brank68", &brank68_algo, &brank68_params },
 
 	{ "bspace", &bspace_algo, &bspace_params },
 	{ "c1tsbits", NULL, NULL },
