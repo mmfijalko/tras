@@ -34,7 +34,8 @@
 #define	__BRANK68_H__
 
 struct brank68_params {
-	double	alpha;	/* significance level for H0 */
+	unsigned int	byte;	/* the selected byte from generator word */
+	double		alpha;	/* significance level for H0 */
 };
 
 TRAS_DECLARE_ALGO(brank68);

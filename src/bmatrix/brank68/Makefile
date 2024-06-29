@@ -1,17 +1,21 @@
 
 CFLAGS=	-g
 CFLAGS+=-I${CURDIR}
-
 FAMDIR=${CURDIR}/../
+
+CFLAGS+=-I${FAMDIR}
 CFLAGS+=-I${FAMDIR}/../include/
 CFLAGS+=-I${FAMDIR}/../utils/
+CFLAGS+=-I${FAMDIR}/bmrank/
 
+VPATH+=${FAMDIR}
 VPATH+=${FAMDIR}/../utils/
 VPATH+=${FAMDIR}/../tras/
+VPATH+=${FAMDIR}/bmrank/
 
 LDFLAGS=-lm
 
-all: brank68.o hamming8.o utils.o tras.o
+all: bmatrix.o bmrank.o utils.o tras.o brank68.o
 
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@
