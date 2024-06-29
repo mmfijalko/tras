@@ -117,6 +117,8 @@ brank31_final(struct tras_ctx *ctx)
 
 	memcpy(&ctx->result, &c->result, sizeof(ctx->result));
 
+	tras_fini_context(ctx, 0);
+
 	return (0);
 }
 
