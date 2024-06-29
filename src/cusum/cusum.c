@@ -90,19 +90,20 @@ static uint8_t cusum_maxtab[256] = {
 };
 
 struct cusum_ctx {
-	unsigned int	nbits;		/* number of bits processed */
 	int		mins;		/* minimal sum so far */
 	int		maxs;		/* maximum sum so far */
 	int		sum;		/* sum for all subsequences */
 	int		mode;		/* forward or backward direction */
+	unsigned int	nbits;		/* number of bits processed */
 	double		alpha;		/* significance level */
 };
 
 int
 cusum_init(struct tras_ctx *ctx, void *params)
 {
-	struct cusum_ctx *c;
 	struct cusum_params *p = params;
+	struct cusum_ctx *c;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
@@ -110,20 +111,14 @@ cusum_init(struct tras_ctx *ctx, void *params)
 	if (p->mode != CUSUM_MODE_FORWARD && p->mode != CUSUM_MODE_BACKWARD)
 		return (EINVAL);
 
-	c = malloc(sizeof(struct cusum_ctx));
-	if (c == NULL)
-		return (ENOMEM);
+	error = tras_init_context(ctx, &cusum_algo, sizeof(struct cusum_ctx),
+	    TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+	c = ctx->context;
 
-	c->mins = 0;
-	c->maxs = 0;
-	c->sum = 0;
 	c->mode = p->mode;
-	c->nbits = 0;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &cusum_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -176,6 +171,10 @@ cusum_update_backward(struct cusum_ctx *c, void *data, unsigned int nbits)
 	if (nbits < CUSUM_MIN_BITS)
 		return (EBADMSG);
 
+	/*
+	 * The only one update call. We cannot run the sequence of the
+	 * updates because the algorithm needs all bits at a clip.
+	 */
 	p = (uint8_t *)data + (nbits >> 3);
 	n = nbits;
 
@@ -269,13 +268,11 @@ cusum_final(struct tras_ctx *ctx)
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.discard = 0;
 	ctx->result.stats1 = (double)z;
 	ctx->result.stats2 = sum;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
