@@ -133,23 +133,21 @@ runs_init(struct tras_ctx *ctx, void *params)
 	struct runs_params *p = params;
 	struct runs_ctx *c;
 	size_t size;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	c = malloc(sizeof(struct runs_ctx));
-	if (c == NULL)
-		return (ENOMEM);
+	error = tras_init_context(ctx, &runs_algo, sizeof(struct runs_ctx),
+	    TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
 
-	c->nbits = 0;
-	c->ones = 0;
+	c = ctx->context;
+
 	c->runs = 1;
 	c->flags = p->flags;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &runs_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -169,7 +167,7 @@ runs_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	c = ctx->context;
 	p = (uint8_t *)data;
 
-	c->ones = frequency_sum1(data, nbits);
+	c->ones += frequency_sum1(data, nbits);
 
 	if (c->nbits != 0 && (c->last ^ ((*p) & 0x80)))
 		c->runs++;
@@ -185,7 +183,7 @@ runs_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 
 	return (0);
 }
-	#include <stdio.h>
+
 int
 runs_final(struct tras_ctx *ctx)
 {
@@ -213,17 +211,10 @@ runs_final(struct tras_ctx *ctx)
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.discard = 0;
+	ctx->result.stats1 = arg;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
-
-#if 0
-	printf("runs test, status = %s, pvalue = %g\n",
-	    (ctx->result.status == TRAS_TEST_FAILED) ? "failed" : "success",
-	    ctx->result.pvalue1);
-#endif
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
