@@ -46,6 +46,8 @@
 #include <const.h>
 #include <cusum.h>
 
+
+	#include <stdio.h>
 /*
  * The table represent a absolute of minimum value for
  * random walk for each 8-bit sequence, where 0 represents
@@ -161,6 +163,9 @@ cusum_update_forward(struct cusum_ctx *c, void *data, unsigned int nbits)
 }
 
 static int
+cusum_update_bacward_contig(struct cusum_ctx *ctx, void *data, unsigned int nbits);
+
+static int
 cusum_update_backward(struct cusum_ctx *c, void *data, unsigned int nbits)
 {
 	unsigned int i, n, m;
@@ -175,13 +180,15 @@ cusum_update_backward(struct cusum_ctx *c, void *data, unsigned int nbits)
 	 * The only one update call. We cannot run the sequence of the
 	 * updates because the algorithm needs all bits at a clip.
 	 */
-	p = (uint8_t *)data + (nbits >> 3);
+	n = (nbits + 7) / 8;
+	p = (uint8_t *)data + n - 1;
 	n = nbits;
 
 	while (n > 0) {
 		if (n & 0x07) {
 			m = n & 0x07;
 			mask = 0x80 >> (m - 1);
+//			mask = 0x80 >> m;
 		} else {
 			m = 8;
 			mask = 0x01;
@@ -201,6 +208,63 @@ cusum_update_backward(struct cusum_ctx *c, void *data, unsigned int nbits)
 		p--;
 	}
 	c->nbits += nbits;
+printf("%s: p = %p, data = %p\n", __func__, p, data);
+
+cusum_update_bacward_contig(c, data, nbits);
+
+	return (0);
+}
+
+#include <stdio.h>
+
+#define	BIT(p, b)	\
+	((p)[b / 8] & (0x80 >> ((b) & 0x07)))
+
+static int
+cusum_update_bacward_contig(struct cusum_ctx *ctx, void *data, unsigned int nbits)
+{
+	unsigned int i;
+	uint8_t *p;
+	int sum, delta;
+	int smin, smax, z0, z1;
+
+	p = (uint8_t *)data;
+
+	delta = 0;
+	sum = 0;
+
+	delta = BIT(p, 0) ? 1 : -1;
+	smin = smax = 0;
+
+	for (i = 1; i < nbits; i++) {
+		if (BIT(p, i)) {
+			sum++;
+			if (sum > smax)
+				smax = sum;
+			delta++;
+		} else {
+			sum--;
+			if (sum < smin)
+				smin = sum;
+			delta--;
+		}
+	}
+
+	printf("delta = %d, smin = %d, smax = %d\n", delta, smin, smax);
+
+	z0 = smin;
+	z1 = smax;
+	smin = delta - z1;
+	smax = delta - z0;
+
+	printf("smin = %d, smax = %d\n", smin, smax);
+
+	smin = abs(smin);
+	smax = abs(smax);
+
+	smax = max(smin, smax);
+
+	printf("stats = %d\n", smax);
 
 	return (0);
 }
@@ -244,6 +308,9 @@ cusum_final(struct tras_ctx *ctx)
 		return (EALREADY);
 
 	z = (abs(c->mins) > c->maxs) ? abs(c->mins) : c->maxs;
+printf("final stats = %d\n", z);
+	z = (abs(c->mins) > abs(c->maxs)) ? abs(c->mins) : abs(c->maxs);
+printf("final stats = %d\n", z);
 
 	n = (int)c->nbits;
 	sqrtn = sqrt(c->nbits);
