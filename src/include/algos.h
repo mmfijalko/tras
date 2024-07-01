@@ -55,5 +55,6 @@
 #include <craps.h>
 #include <serial.h>
 #include <chi2.h>
+#include <igamc.h>
 
 #endif

@@ -40,6 +40,7 @@
 
 #include <tras.h>
 #include <cdefs.h>
+#include <igamc.h>
 #include <serial.h>
 
 #include <stdio.h>
@@ -126,8 +127,8 @@ serial_update_bits(struct serial_ctx *c, unsigned int offs, void *data,
 	unsigned int n;
 
 	m0 = (1 << c->m) - 1;
-	m1 = (1 << (c->m - 1)) - 1;
-	m2 = (1 << (c->m - 2)) - 1;
+	m1 = m0 >> 1;
+	m2 = m1 >> 1;
 
 	p = (uint8_t *)data + offs / 8;
 	m = 0x80 >> (offs & 0x07);
@@ -140,6 +141,7 @@ serial_update_bits(struct serial_ctx *c, unsigned int offs, void *data,
 		c->m0[block & m0]++;
 		c->m1[block & m1]++;
 		c->m2[block & m2]++;
+		m = m >> 1;
 		if (m == 0) {
 			p++;
 			m = 0x80;
@@ -178,6 +180,7 @@ serial_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	 * Building first m - 1 bits block and context.
 	 */
 	k = c->nbits;
+
 	if (k < (c->m - 1)) {
 		n = c->m - 1 - c->nbits;
 		n = min(n, nbits);
@@ -210,6 +213,68 @@ serial_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (0);
 }
 
+int
+serial_update2(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+	struct serial_ctx *c;
+	uint32_t block, m0, m1, m2;
+	unsigned int n, k, j, offs, i;
+	uint8_t *p, m;
+
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
+	if (nbits == 0)
+		return (0);
+
+	c = ctx->context;
+	p = (uint8_t *)data;
+
+	m0 = (1 << c->m) - 1;
+	m1 = m0 >> 1;
+	m2 = m1 >> 1;
+
+	/*
+	 * Building first m - 1 bits block and context.
+	 */
+	k = c->nbits;
+
+	if (k < (c->m - 1)) {
+		block = c->block;
+		n = c->m - 1 - k;
+		n = min(n, nbits);
+		offs = n;
+		while (n > 0) {
+			j = min(n, 8);
+			for (i = 0, m = 0x80; i < j; i++, m >>= 1)
+				block = (block << 1) | ((*p & m) ? 1 : 0);
+			n = n - j;
+			k = k + j;
+			p++;
+		}
+		c->block = block;
+		if (k == (c->m - 1)) {
+			c->first = block;
+			c->m1[block & m1]++;
+			c->m2[block & m2]++;
+			block = block >> 1;
+			c->m2[block & m2]++;
+		}
+	} else {
+		offs = 0;
+	}
+
+	if (nbits > offs) {
+		/*
+		 * Ready to iterate with all blocks.
+		 */
+		serial_update_bits(c, offs, data, nbits - offs);
+	}
+
+	c->nbits += nbits;
+
+	return (0);
+}
+
 /*
  * Finalize the serial test and determine its result.
  */
@@ -223,6 +288,8 @@ serial_final(struct tras_ctx *ctx)
 	double dpsim1, dpsim2;
 	double pvalue1, pvalue2;
 	uint8_t b;
+
+unsigned int sf;
 
 	TRAS_CHECK_FINAL(ctx);
 
@@ -266,12 +333,12 @@ serial_final(struct tras_ctx *ctx)
 	dpsim2 = psim0 - 2 * psim1 + psim2;
 
 	/* todo: Calculate first p-value for the first statistics */
-	pvalue1 = 0.0;
+	pvalue1 = igamc(pow(2, m - 2), dpsim1);
+//	printf("%s: getting imagc(%f, %f) = %f\n", __func__, pow(2, m - 2), dpsim1, pvalue1);
 
 	/* todo: Calculate second p-value for the second statistics */
-	pvalue2 = 0.0;
-
-	/* Todo: finalize the test. */
+	pvalue2 = igamc(pow(2, m - 3), dpsim2);
+//	printf("%s: getting imagc(%f, %f) = %f\n", __func__, pow(2, m - 3), dpsim2, pvalue2);
 
 	/* Determine and store results */
 	if (pvalue1 < c->alpha || pvalue2 < c->alpha)
@@ -329,7 +396,7 @@ const struct tras_algo serial_algo = {
 	.id =		0,
 	.version = 	{ 0, 1, 1 },
 	.init =		serial_init,
-	.update =	serial_update,
+	.update =	serial_update2,
 	.test =		serial_test,
 	.final =	serial_final,
 	.restart =	serial_restart,
