@@ -42,8 +42,6 @@
 #include <cdefs.h>
 #include <sphere3d.h>
 
-#include <stdio.h>
-
 #define	SPHERE3D_ID_FULL_NUMBERS	0
 #define	SPHERE3D_ID_PART_UPDATES	1
 
@@ -64,11 +62,10 @@ struct point {
  * The context structure for the 3D spheres test.
  */
 struct sphere3d_ctx {
-	unsigned int	nbits;	/* number of bits processed */
-	unsigned int	ntups;	/* number of tuples stored */
 	struct point *	points;	/* points list for update */
 	unsigned int	npoint;	/* number of points updated */
-	unsigned int	K;	/* */
+	unsigned int	K;	/* the maximum number of points */
+	unsigned int	nbits;	/* number of bits processed */
 	double		alpha;	/* significance level for H0 */
 };
 
@@ -210,12 +207,12 @@ sphere3d_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 		else {
 			p->z = coord;
 			p++;
-			c->npoint++;
 		}
 		b++;
 		d++;
 		n--;
 	}
+	c->npoint = b / 3;
 	c->nbits += nbits;
 
 	return (0);
