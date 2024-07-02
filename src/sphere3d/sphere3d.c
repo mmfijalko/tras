@@ -42,6 +42,8 @@
 #include <cdefs.h>
 #include <sphere3d.h>
 
+#include <stdio.h>
+
 #define	SPHERE3D_ID_FULL_NUMBERS	0
 #define	SPHERE3D_ID_PART_UPDATES	1
 
@@ -175,9 +177,10 @@ int
 sphere3d_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct sphere3d_ctx *c;
-	unsigned int n, b;
+	struct point *p;
+	unsigned int n, b, k;
 	uint32_t *d;
-	double *v;
+	double coord;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
@@ -187,20 +190,32 @@ sphere3d_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	c = ctx->context;
 	d = (uint32_t *)data;
 
+	/*
+	 * todo: what about endiannes ???
+	 */
 	b = c->nbits / 32;
-	v = ((double *)c->points) + b;
 	b = min(b, 3 * c->K);
 
-	n = b - min(b, n);
+	p = &c->points[b / 3];
+	n = 3 * c->K - b;
+	n = min(n, nbits / 32);
 
 	while (n > 0) {
-		*v = sphere3d_point_component(*d);
-		v++;
+		coord = sphere3d_point_component(*d);
+		k = b % 3;
+		if (k == 0)
+			p->x = coord;
+		else if (k == 1)
+			p->y = coord;
+		else {
+			p->z = coord;
+			p++;
+			c->npoint++;
+		}
+		b++;
 		d++;
 		n--;
 	}
-	c->npoint = b / 3;
-
 	c->nbits += nbits;
 
 	return (0);
