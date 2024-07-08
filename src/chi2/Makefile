@@ -4,9 +4,11 @@ CFLAGS+=-I${CURDIR}
 CFLAGS+=-I${CURDIR}/../include/
 CFLAGS+=-I${CURDIR}/../utils/
 CFLAGS+=-I${CURDIR}/../cephes/
+CFLAGS+=-I${CURDIR}/../chi2/
 
 VPATH+=${CURDIR}/../utils/
 VPATH+=${CURDIR}/../tras/
+VPATH+=${CURDIR}/../cephes/
 VPATH+=${CURDIR}/../cephes/
 
 LDFLAGS=-lm

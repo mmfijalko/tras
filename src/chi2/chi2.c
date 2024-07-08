@@ -82,22 +82,22 @@ int
 chi2_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct chi2_params *p;
-	double *obs, s, d;
-	unsigned int i;
+	unsigned int *obs, i;
+	double s, d;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	p = ctx->context;
 
-	if (nbits != p->K * sizeof(double) * 8)
+	if (nbits != p->K * sizeof(unsigned int) * 8)
 		return (EINVAL);
 
-	obs = (double *)data;
+	obs = (unsigned int *)data;
 
 	for (i = 0, s = 0.0; i < p->K; i++) {
 		if (p->exp[i] == 0.0)
 			return (ENXIO);
-		d = obs[i] - p->exp[i];
+		d = (double)obs[i] - p->exp[i];
 		s = s + d * d / p->exp[i];
 	}
 

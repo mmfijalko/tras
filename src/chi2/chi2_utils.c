@@ -38,10 +38,9 @@
 #include <tras.h>
 #include <chi2.h>
 
-
 int
 chi_square_test(unsigned int K, unsigned int df, const double *exp,
-    double *freq, double alpha)
+    unsigned int *freq, double alpha, double *pvalue)
 {
 	struct tras_ctx ctx;
 	struct chi2_params p = { K, 0, exp, alpha };
@@ -51,5 +50,10 @@ chi_square_test(unsigned int K, unsigned int df, const double *exp,
 	if (chi2_init(&ctx, &p) != 0)
 		return (EINVAL);
 
-	return (chi2_test(&ctx, (void *)freq, 8 * K * sizeof(double)));
+	if (chi2_test(&ctx, (void *)freq, 8 * K * sizeof(unsigned int)))
+		return (EINVAL);
+
+	*pvalue = ctx.result.pvalue1;
+
+	return (0);
 }

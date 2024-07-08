@@ -35,8 +35,9 @@
 #ifndef __CHI2_UTILS_H__
 #define	__CHI2_UTILS_H__
 
-int chi_square_test(unsigned int K, unsigned int df, const double *exp,
-    double *freq, double alpha);
+int
+chi_square_test(unsigned int K, unsigned int df, const double *exp,
+    unsigned int *freq, double alpha, double *pvalue);
 
 #endif
 
