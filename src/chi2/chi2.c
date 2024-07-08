@@ -40,6 +40,7 @@
 #include <math.h>
 
 #include <tras.h>
+#include <igamc.h>
 #include <chi2.h>
 
 static double
@@ -121,12 +122,11 @@ chi2_final(struct tras_ctx *ctx)
 
 	p = ctx->context;
 
-	/* TODO:
-	 * pvalue1 = igamc(p->df / 2.0, ctx->result.stats1 / 2.0);
-	 */
-
-	ctx->result.pvalue1 = 0.0;
-	ctx->result.pvalue2 = 0.0;
+	ctx->result.pvalue1 = igamc(p->df / 2.0, ctx->result.stats1 / 2.0);
+	if (ctx->result.pvalue1 < p->alpha)
+		ctx->result.status = TRAS_TEST_FAILED;
+	else
+		ctx->result.status = TRAS_TEST_PASSED;
 
 	/* reset context to not free by tras_fini_context function */
 	ctx->context = NULL;
@@ -151,8 +151,8 @@ chi2_free(struct tras_ctx *ctx)
 }
 
 const struct tras_algo chi2_algo = {
-	.name =		"TODO:",
-	.desc =		"TODO:",
+	.name =		"chi2",
+	.desc =		"chi-square test",
 	.id =		0,
 	.version = 	{ 0, 1, 1 },
 	.init =		chi2_init,
