@@ -200,6 +200,14 @@ struct longruns_params longruns_params = {
 .version = 1,
 };
 
+struct ntmatch_params ntmatch_params = {
+	.m = 8,
+	.M = 20000,
+	.N = 8,
+	.B = 0x10110110,
+	.alpha = 0.01,
+};
+
 static const struct test_algo algo_list[] = {
 	{ "frequency", &frequency_algo, &frequency_params, 0 },
 	{ "sphere3d", &sphere3d_algo, &sphere3d_params, 0 },
@@ -216,7 +224,7 @@ static const struct test_algo algo_list[] = {
 	{ "lcomplex", NULL, NULL},
 	{ "maurer", &maurer_algo, &maurer_params },
 	{ "coron", &coron_algo, &coron_params },
-	{ "ntmatch", NULL, NULL },
+	{ "ntmatch", &ntmatch_algo, &ntmatch_params },
 	{ "otmatch", NULL, NULL },
 	{ "plot", &plot_algo, &plot_params },
 	{ "runs", &runs_algo, &runs_params },
