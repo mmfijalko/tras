@@ -23,6 +23,7 @@ CFLAGS+=-I${CURDIR}/../maurer/
 CFLAGS+=-I${CURDIR}/../coron/
 CFLAGS+=-I${CURDIR}/../bspace/
 CFLAGS+=-I${CURDIR}/../craps/
+CFLAGS+=-I${CURDIR}/../cephes/
 CFLAGS+=-I${CURDIR}/../chi2/
 
 VPATH+=${CURDIR}/../utils/
@@ -48,6 +49,7 @@ VPATH+=${CURDIR}/../maurer/
 VPATH+=${CURDIR}/../coron/
 VPATH+=${CURDIR}/../bspace/
 VPATH+=${CURDIR}/../craps/
+VPATH+=${CURDIR}/../cephes/
 VPATH+=${CURDIR}/../chi2/
 
 LDFLAGS=-lm
@@ -56,8 +58,8 @@ all: test
 
 test: test.o hamming8.o utils.o tras.o frequency.o runs.o blkfreq.o sphere3d.o \
       mindist.o plot.o squeeze.o approxe.o sparse.o opso.o dna.o bstream.o \
-      cusum.o chi2.o excursionv.o excursion.o universal.o maurer.o coron.o \
-      longruns.o bspace.o craps.o lentz_gamma.o
+      cusum.o excursionv.o excursion.o universal.o maurer.o coron.o \
+      longruns.o bspace.o craps.o chi2.o lentz_gamma.o
 	${CC} $^ ${LDFLAGS} -o test
 
 %.o: %.c
