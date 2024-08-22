@@ -222,6 +222,13 @@ approxe_final(struct tras_ctx *ctx)
 	if (freq == NULL)
 		return (ENOMEM);
 
+printf("total n = %d\n", n);
+for (i = 0; i < k; i++)
+	printf("freq0[%d] = %d\n", i, c->freq0[i]);
+for (i = 0; i < 2 * k; i++)
+	printf("freq1[%d] = %d\n", i, c->freq1[i]);
+
+
 	/* Calculate relative frequencies for m */ 
 	for (i = 0; i < k; i++) {
 		freq[i] = ((double)c->freq0[i]) / (double)n;
