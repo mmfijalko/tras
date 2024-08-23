@@ -54,7 +54,7 @@ struct test_algo {
 };
 
 struct frequency_params frequency_params = {
-	.alpha = 0.05,
+	.alpha = 0.01,
 };
 
 struct approxe_params approxe_params = {
