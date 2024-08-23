@@ -67,7 +67,7 @@ struct runs_params runs_params = {
 };
 
 struct blkfreq_params blkfreq_params = {
-	.m = 21,
+	.m = 64,
 	.alpha = 0.01,
 };
 
