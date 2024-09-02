@@ -28,26 +28,28 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * The 3D Spheres Test.
+ * The Pearson chi-square test utils.
+ *
  */
 
-#ifndef __SPHERES3D_H__
-#define	__SPHERES3D_H__
+#include <stddef.h>
+#include <errno.h>
 
-struct sphere3d_params {
-	unsigned int	K;	/* number of points/triplets */
-	double		alpha;	/* significance level for H0 */
-};
+#include <tras.h>
+#include <chi2.h>
 
-TRAS_DECLARE_ALGO(sphere3d);
 
-#define	SPHERE3D_MIN_NUMBERS	12000
-#define	SPHERE3D_MAX_NUMBERS	12000
+int
+chi_square_test(unsigned int K, unsigned int df, const double *exp,
+    double *freq, double alpha)
+{
+	struct tras_ctx ctx;
+	struct chi2_params p = { K, 0, exp, alpha };
 
-#define	SPHERE3D_MIN_TRIPLETS	(SPHERE3D_MIN_NUMBERS / 3)
-#define	SPHERE3D_MAX_TRIPLETS	(SPHERE3D_MAX_NUMBERS / 3)
+	p.df = (df == 0) ? K - 1 : df;
 
-#define	SPHERE3D_MIN_NBITS	(32 * SPHERE3D_MIN_NUMBERS)
-#define	SPHERE3D_MAX_NBITS	SPHERE3D_MIN_NBITS
+	if (chi2_init(&ctx, &p) != 0)
+		return (EINVAL);
 
-#endif
+	return (chi2_test(&ctx, (void *)freq, 8 * K * sizeof(double)));
+}

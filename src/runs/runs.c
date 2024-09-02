@@ -132,24 +132,20 @@ runs_init(struct tras_ctx *ctx, void *params)
 {
 	struct runs_params *p = params;
 	struct runs_ctx *c;
-	size_t size;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	c = malloc(sizeof(struct runs_ctx));
-	if (c == NULL)
-		return (ENOMEM);
+	error = tras_init_context(ctx, &runs_algo, sizeof(struct runs_ctx),
+	    TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+	c = ctx->context;
 
-	c->nbits = 0;
-	c->ones = 0;
 	c->runs = 1;
 	c->flags = p->flags;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &runs_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -185,7 +181,7 @@ runs_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 
 	return (0);
 }
-	#include <stdio.h>
+
 int
 runs_final(struct tras_ctx *ctx)
 {
@@ -217,13 +213,7 @@ runs_final(struct tras_ctx *ctx)
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
-
-#if 0
-	printf("runs test, status = %s, pvalue = %g\n",
-	    (ctx->result.status == TRAS_TEST_FAILED) ? "failed" : "success",
-	    ctx->result.pvalue1);
-#endif
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }

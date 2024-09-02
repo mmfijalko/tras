@@ -38,7 +38,7 @@
 
 #include <tras.h>
 #include <cdefs.h>
-
+#include <igamc.h>
 #include <hamming8.h>
 #include <longruns.h>
 
@@ -180,8 +180,8 @@ if (p->version != 1 && p->version != 2)
 	if (classes->pi == NULL)
 		return (EINVAL);
 
-	size = sizeof(struct longruns_ctx) +
-	    (classes->K + 1) * sizeof(unsigned int);
+	size = sizeof(struct longruns_ctx) + (classes->K + 1) *
+	    sizeof(unsigned int);
 
 	error = tras_init_context(ctx, &longruns_algo, size, TRAS_F_ZERO);
 	if (error != 0)
@@ -234,22 +234,25 @@ longruns_update1(struct tras_ctx *ctx, void *data, unsigned int nbits)
 			}
 			if (*p & mask) {
 				run++;
-			} else if (run != 0) {
+			} else {
 				if (run > c->maxrun)
 					c->maxrun = run;
 				run = 0;
 			}
 		}
-		n = n - k;
-		o = o + k;
-		b = b + k;
+		if (run > c->maxrun)
+			c->maxrun = run;
 		if (o == c->M) {
 			longruns_category_inc(c, c->maxrun);
 			c->maxrun = 0;
 			run = 0;
 			o = 0;
 			c->nblks++;
+		} else {
+			o = o + k;
 		}
+		b = b + k;
+		n = n - k;
 	}
 	c->run = run;
 
@@ -298,8 +301,6 @@ longruns_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (ENXIO);
 }
 
-#include <stdio.h>
-
 int
 longruns_final(struct tras_ctx *ctx)
 {
@@ -323,13 +324,7 @@ longruns_final(struct tras_ctx *ctx)
 		stats += (c->v[i] - npi) * (c->v[i] - npi) / npi;
 	}
 
-	/*
-	 * TODO: calculating igamc not implemented yet, just stats.
-	 *
-	 * p-value = igamc(K / 2, chi2(obs) / 2);
-	 */
-
-	pvalue = 0.0;
+	pvalue = igamc((double)K / 2, stats / 2);
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;

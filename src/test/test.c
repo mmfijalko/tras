@@ -37,6 +37,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
 #include <math.h>
 
 #include <tras.h>
@@ -53,7 +54,7 @@ struct test_algo {
 };
 
 struct frequency_params frequency_params = {
-	.alpha = 0.05,
+	.alpha = 0.01,
 };
 
 struct approxe_params approxe_params = {
@@ -66,7 +67,7 @@ struct runs_params runs_params = {
 };
 
 struct blkfreq_params blkfreq_params = {
-	.m = 21,
+	.m = 64,
 	.alpha = 0.01,
 };
 
@@ -194,8 +195,8 @@ struct craps_params craps_params = {
 };
 
 struct longruns_params longruns_params = {
-	.M = 8,
-	.N = 1024,
+	.M = 128,
+	.N = 64,
 	.alpha = 0.01,
 .version = 1,
 };
@@ -260,6 +261,16 @@ static const struct test_algo algo_list[] = {
 static int test_cmd = TEST_CMD_HELP;
 
 /*
+ * Maximum number of bytes to process.
+ */
+static unsigned int test_total = 0;
+
+/*
+ * Maximum number of bytes for one single test.
+ */
+static unsigned int test_maxnbits = 0;
+
+/*
  * Test selected to run.
  */
 static const struct test_algo *test_desc = NULL;
@@ -284,12 +295,42 @@ test_cmd_list(void)
 }
 
 static int
+test_atoi(const char *str, long *lval)
+{
+	long val;
+
+	val = strtoul(str, NULL, 10);
+	if (val == 0 && errno == EINVAL)
+		return (EINVAL);
+	if (errno == ERANGE)
+		return (ERANGE);
+	*lval = val;
+
+	return (0);
+}
+
+static int
+test_getuint(const char *str, unsigned int *ival)
+{
+	long lval;
+	int error;
+
+	error = test_atoi(str, &lval);
+	if (error != 0)
+		return (error);
+	if (lval < 0 || lval > (long)UINT_MAX)
+		return (EINVAL);
+	*ival = (unsigned int)lval;
+
+	return (0);
+}
+
+static int
 test_cmd_test(void)
 {
 	const struct tras_algo *algo;
 	struct tras_ctx ctx;
-	int error, id, nrd, size;
-	int total;
+	int error, id, nrd, size, total;
 	char *data, idstr[64];
 
 	if (test_desc->algo == NULL) {
@@ -377,11 +418,13 @@ test_select_test(const char *name)
 	return ((test_desc == NULL) ? EINVAL : 0);
 }
 
+#define	TEST_OPTSTR	"hlt:s:S"
+
 int main(int argc, char *argv[])
 {
 	int error, c;
 
-	while ((c = getopt(argc, argv, "hlt:")) != -1) {
+	while ((c = getopt(argc, argv, TEST_OPTSTR)) != -1) {
 		switch (c) {
 		case 'h':
 			test_usage();
@@ -395,6 +438,20 @@ int main(int argc, char *argv[])
 			if (error != 0) {
 				printf("test: invalid algorithm name\n");
 				return (EINVAL);
+			}
+			break;
+		case 'S':
+			error = test_getuint(optarg, &test_total);
+			if (error != 0) {
+				printf("test: invalid total size\n");
+				return (error);
+			}
+		case 's':
+			break;
+			error = test_getuint(optarg, &test_maxnbits);
+			if (error != 0) {
+				printf("test: invalid max nbits for the test\n");
+				return (error);
 			}
 			break;
 		default:

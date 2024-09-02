@@ -201,17 +201,18 @@ int
 tras_init_context(struct tras_ctx *ctx, const struct tras_algo *algo,
     size_t size, int flags)
 {
-	void *c;
+	void *c = NULL;
 
 	if (ctx == NULL || algo == NULL)
 		return (EINVAL);
 
-	c = malloc(size);
-	if (c == NULL)
-		return (ENOMEM);
-
-	if (flags & TRAS_F_ZERO)
-		memset(c, 0, size);
+	if (size > 0) {
+		c = malloc(size);
+		if (c == NULL)
+			return (ENOMEM);
+		if (flags & TRAS_F_ZERO)
+			memset(c, 0, size);
+	}
 
 	memset(&ctx->result, 0, sizeof(ctx->result));
 
