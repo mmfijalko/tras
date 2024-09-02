@@ -195,8 +195,8 @@ struct craps_params craps_params = {
 };
 
 struct longruns_params longruns_params = {
-	.M = 8,
-	.N = 1024,
+	.M = 128,
+	.N = 64,
 	.alpha = 0.01,
 .version = 1,
 };
