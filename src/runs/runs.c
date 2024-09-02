@@ -132,7 +132,6 @@ runs_init(struct tras_ctx *ctx, void *params)
 {
 	struct runs_params *p = params;
 	struct runs_ctx *c;
-	size_t size;
 	int error;
 
 	TRAS_CHECK_INIT(ctx);
@@ -142,7 +141,6 @@ runs_init(struct tras_ctx *ctx, void *params)
 	    TRAS_F_ZERO);
 	if (error != 0)
 		return (error);
-
 	c = ctx->context;
 
 	c->runs = 1;
@@ -213,6 +211,7 @@ runs_final(struct tras_ctx *ctx)
 
 	ctx->result.stats1 = arg;
 	ctx->result.pvalue1 = pvalue;
+	ctx->result.pvalue2 = 0;
 
 	tras_fini_context(ctx, 0);
 
