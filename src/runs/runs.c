@@ -186,8 +186,7 @@ int
 runs_final(struct tras_ctx *ctx)
 {
 	struct runs_ctx *c;
-	double pvalue, stats;
-	double pi, arg;
+	double pvalue, stats, pi;
 
 	TRAS_CHECK_FINAL(ctx);
 
@@ -199,17 +198,17 @@ runs_final(struct tras_ctx *ctx)
 	pi = (double)c->ones / c->nbits;
 	pi = pi * (1.0 - pi);
 
-	arg = (double)c->runs - 2.0 * c->nbits * pi;
-	arg = abs(arg) / (2.0 * sqrt(2.0 * c->nbits) * pi);
+	stats = (double)c->runs - 2.0 * c->nbits * pi;
+	stats = abs(stats) / (2.0 * sqrt(2.0 * c->nbits) * pi);
 
-	pvalue = erfc(arg);
+	pvalue = erfc(stats);
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.stats1 = arg;
+	ctx->result.stats1 = stats;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0;
 
