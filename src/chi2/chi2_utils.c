@@ -28,35 +28,28 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * The Pearson chi-square test utils.
+ *
  */
 
-#ifndef	__TRAS_BlOCK_FREQUENCY_H__
-#define	__TRAS_BLOCK_FREQUENCY_H__
+#include <stddef.h>
+#include <errno.h>
 
-/*
- * Minimum value for length of block in bits, no maximum value.
- */
-#define	BLKFREQ_MIN_M		20
-#define	BLKFREQ_MAX_M		0
+#include <tras.h>
+#include <chi2.h>
 
-/*
- * Maximum number of bits for the test depends on m parameter.
- */
-#define	BLKFREQ_MIN_N		100	/* global mimimum number of bits */
-#define	BLKFREQ_MAX_N		100000	/* no global maximum */
 
-#define	BLKFREQ_MIN_BLOCKS	0
-#define	BLKFREQ_MAX_BLOCKS	100
+int
+chi_square_test(unsigned int K, unsigned int df, const double *exp,
+    double *freq, double alpha)
+{
+	struct tras_ctx ctx;
+	struct chi2_params p = { K, 0, exp, alpha };
 
-/*
- * Frequency Test within a Block Test parameters.
- */
-struct blkfreq_params {
-	unsigned int	m;		/* the length of blocks in bits */
-	double		alpha;		/* significance level */
-};
+	p.df = (df == 0) ? K - 1 : df;
 
-TRAS_DECLARE_ALGO(blkfreq);
+	if (chi2_init(&ctx, &p) != 0)
+		return (EINVAL);
 
-#endif
-
+	return (chi2_test(&ctx, (void *)freq, 8 * K * sizeof(double)));
+}

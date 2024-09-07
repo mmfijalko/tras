@@ -40,6 +40,7 @@
 #include <math.h>
 
 #include <tras.h>
+#include <igamc.h>
 #include <chi2.h>
 
 static double
@@ -54,8 +55,6 @@ chi2_statistics(unsigned int *v, double *p, unsigned int nv, unsigned int n)
 	}
 	return (s);
 }
-
-#include <stdio.h>
 
 int
 chi2_init(struct tras_ctx *ctx, void *params)
@@ -72,9 +71,9 @@ chi2_init(struct tras_ctx *ctx, void *params)
 	if (p->exp == NULL)
 		return (EINVAL);
 
+	tras_init_context(ctx, &chi2_algo, 0, 0);
+
 	ctx->context = p;
-	ctx->algo = &chi2_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -89,6 +88,7 @@ chi2_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	p = ctx->context;
+
 	if (nbits != p->K * sizeof(double) * 8)
 		return (EINVAL);
 
@@ -122,16 +122,16 @@ chi2_final(struct tras_ctx *ctx)
 
 	p = ctx->context;
 
-	/* TODO:
-	 * pvalue1 = igamc(p->df / 2.0, ctx->result.stats1 / 2.0);
-	 */
+	ctx->result.pvalue1 = igamc(p->df / 2.0, ctx->result.stats1 / 2.0);
+	if (ctx->result.pvalue1 < p->alpha)
+		ctx->result.status = TRAS_TEST_FAILED;
+	else
+		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.stats2 = 0.0;
-	ctx->result.pvalue1 = 0.0;
-	ctx->result.pvalue2 = 0.0;
-
-	ctx->state = TRAS_STATE_FINAL;
+	/* reset context to not free by tras_fini_context function */
 	ctx->context = NULL;
+
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
@@ -151,8 +151,8 @@ chi2_free(struct tras_ctx *ctx)
 }
 
 const struct tras_algo chi2_algo = {
-	.name =		"TODO:",
-	.desc =		"TODO:",
+	.name =		"chi2",
+	.desc =		"chi-square test",
 	.id =		0,
 	.version = 	{ 0, 1, 1 },
 	.init =		chi2_init,
