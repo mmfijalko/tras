@@ -266,7 +266,7 @@ static int test_cmd = TEST_CMD_HELP;
 static unsigned int test_total = 0;
 
 /*
- * Maximum number of bytes for one single test.
+ * Maximum number of bits for one single test.
  */
 static unsigned int test_maxnbits = 0;
 
@@ -275,9 +275,12 @@ static unsigned int test_maxnbits = 0;
  */
 static const struct test_algo *test_desc = NULL;
 
+#define	min(a, b)	(((a) < (b)) ? (a) : (b))
+
 static void
 test_usage(void)
 {
+
 	printf("test: application to run tras statistica test\n");
 	printf("synopsis: test [hlt]\n");
 	printf("-h        : print usage of the application\n");
@@ -326,12 +329,55 @@ test_getuint(const char *str, unsigned int *ival)
 }
 
 static int
+test_file_read(int fd, void *data, size_t *size)
+{
+	ssize_t nrd, n, total = 0;
+
+	n = *size;
+	while (n > 0) {
+		nrd = read(STDIN_FILENO, (char *)data + total, n);
+		if (nrd < 0)
+			return (errno);
+		if (nrd == 0) {
+			*size = total;
+			break;
+		}
+		n = n - nrd;
+		total = total + nrd;
+	}
+	*size = total;
+
+	return (0);
+}
+
+static int
+test_stdin_read(void *data, size_t *size)
+{
+
+	return (test_file_read(STDIN_FILENO, data, size));
+}
+
+static void
+test_show_result(const struct tras_algo *algo, struct tras_ctx *ctx, int id)
+{
+	char idstr[64];
+
+	snprintf(idstr, sizeof(idstr), "%s test #%d", algo->name, id);
+
+	printf("%-28s: pvalue = %.*f%-8s stats1 = %.*f%-8s %s\n",
+	    idstr, 8, ctx->result.pvalue1, "\t", 8, ctx->result.stats1, "\t",
+	    (ctx->result.status == TRAS_TEST_PASSED) ? "success" : "failed");
+}
+
+static int
 test_cmd_test(void)
 {
 	const struct tras_algo *algo;
 	struct tras_ctx ctx;
-	int error, id, nrd, size, total;
-	char *data, idstr[64];
+	size_t nread;
+	unsigned int n, size, nupd, ntest;
+	int error, id, restart = 0;
+	char *data, *p, idstr[64];
 
 	if (test_desc->algo == NULL) {
 		printf("test not implemented yet\n");
@@ -356,45 +402,69 @@ test_cmd_test(void)
 		algo->free(&ctx);
 		return (ENOMEM);
 	}
+	ntest = 0;
+	nread = 0;
 
-	for (id = 1; ;) {
-		nrd = read(STDIN_FILENO, data, size);
-		if (nrd < 0) {
-			error = errno;
-			break;
-		}
-		if (nrd == 0) {
-			error = 0;
-			break;
-		}
-		error = algo->update(&ctx, data, nrd * 8);
-		if (error != 0) {
-			printf("test: failed to updadate data for %s test\n",
-			    algo->name);
-			break;
-		}
-		total += nrd;
-		error = algo->final(&ctx);
-		if (error != 0 && error != EALREADY) {
-			printf("test: failed to final %s test\n",
-			    algo->name);
-			break;
-		}
-		if (error == EALREADY)
-			continue;
+	id = 1;
+	n = (test_total > 0) ? test_total : UINT_MAX;
 
-		snprintf(idstr, sizeof(idstr), "%s test #%d", algo->name, id);
-
-		printf("%-28s: pvalue = %.*f%-8s stats1 = %.*f%-8s %s\n", idstr,
-		    8, ctx.result.pvalue1, "\t", 8, ctx.result.stats1, "\t",
-			(ctx.result.status == TRAS_TEST_PASSED) ? "success" : "failed");
-		error = algo->restart(&ctx, test_desc->params);
-		if (error != 0) {
-			printf("test: failed to restart %s test\n",
-			    algo->name);
+	while (n > 0) {
+		nread = min(size, n);
+		error = test_stdin_read(data, &nread);
+		if (error != 0 || nread == 0)
 			break;
+
+		nread = nread * 8;
+
+		if (test_maxnbits > 0) {
+			nupd = min(test_maxnbits, ntest);
+			nupd = test_maxnbits - nupd;
+		} else {
+			nupd = UINT_MAX;
 		}
-		id++;
+		nupd = min(nupd, nread);
+
+		if (nupd > 0) {
+			error = algo->update(&ctx, data, nupd);
+			if (error != 0) {
+				printf("test: failed to updadate data for %s test\n",
+				    algo->name);
+				break;
+			}
+			ntest += nupd;
+		}
+		if (test_maxnbits > 0) {
+			nupd = test_maxnbits - ntest;
+			if (nupd == 0) {
+				error = algo->final(&ctx);
+				if (error != 0)
+					break;
+				restart = 1;
+			}
+		} else {
+			error = algo->final(&ctx);
+			if (error != 0) {
+				if (error != EALREADY)
+					break;
+			} else {
+				restart = 1;
+			}
+		}
+
+		if (restart) {
+			test_show_result(algo, &ctx, id);
+			error = algo->restart(&ctx, test_desc->params);
+			if (error != 0) {
+				printf("test: failed to restart %s test\n",
+				    algo->name);
+				break;
+			}
+			ntest = 0;
+			restart = 0;
+			id++;
+		}
+		n = n - nread;
+		nread = 0;
 	}
 
 	algo->free(&ctx);
