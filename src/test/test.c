@@ -99,6 +99,10 @@ struct dna_params opso_params = {
 	.alpha = 0.01,
 };
 
+struct dna_params otso_params = {
+	.alpha = 0.01,
+};
+
 struct bstream_params bstream_params = {
 	.alpha = 0.01,
 };
@@ -230,13 +234,19 @@ static const struct test_algo algo_list[] = {
 	{ "bspace", &bspace_algo, &bspace_params },
 	{ "c1tsbits", NULL, NULL },
 	{ "craps", &craps_algo, &craps_params },
+
 	{ "sparse_opso", &sparse_algo, &sparse_params_opso },
 	{ "sparse_otso", &sparse_algo, &sparse_params_otso },
 	{ "sparse_oqso", &sparse_algo, &sparse_params_oqso },
 	{ "sparse_dna", &sparse_algo, &sparse_params_dna },
+
 	{ "opso", &opso_algo, &opso_params },
+	{ "otso", &otso_algo, &otso_params },
+	{ "oqso", &oqso_algo, &oqso_params },
 	{ "dna", &dna_algo, &dna_params },
-	{ "dna_sparse", &dna_sparse_algo, NULL },
+
+	{ "dna_sparse", &dna_sparse_algo, NULL },	/* ??? */
+
 	{ "excursion", &excursion_algo, &excursion_params },
 	{ "excursionv", &excursionv_algo, &excursionv_params },
 	{ "kstest", NULL, NULL },

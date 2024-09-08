@@ -215,6 +215,7 @@ static struct sparse_params sparse_params_dna = {
 	.var = 337,0,
 	.alpha = 0.01,
 };
+
 int
 dna_sparse_init(struct tras_ctx *ctx, void *params)
 {
