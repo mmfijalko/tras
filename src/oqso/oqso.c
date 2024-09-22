@@ -28,120 +28,87 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * todo:
+ * The overlapping-quadruples-sparse-occupancy test (OQSO).
  */
 
 #include <stdint.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 #include <tras.h>
 #include <utils.h>
 #include <bits.h>
-
-#include <hamming8.h>
+#include <sparse.h>
 #include <oqso.h>
 
 /*
- * todo.
+ * The OQSO test parameters encoded as sparse parameters.
  */
-struct oqso_ctx {
-	unsigned int	nbits;	/* number of bits processed */
-	double		alpha;	/* significance level for H0 */
+struct sparse_params sparse_oqso_params = {
+	.m = 32,
+	.k = 4,
+	.b = 5,
+	.r = 32,
+	.wmax = SPARSE_MAX_WORDS,
+	.mean = 141909.6005321316,
+	.var = 294.6558723658,
 };
+
+static inline int
+oqso_set_params(struct sparse_params *sp, void *params)
+{
+
+	return (sparse_set_params(sp, &sparse_oqso_params, params));
+}
 
 int
 oqso_init(struct tras_ctx *ctx, void *params)
 {
-	struct oqso_params *p = params;
-	struct oqso_ctx *c;
+	struct sparse_params sp;
+	int error;
 
-	TRAS_CHECK_INIT(ctx);
-	TRAS_CHECK_PARA(p, p->alpha);
+	error = oqso_set_params(&sp, params);
+	if (error != 0)
+		return (error);
 
-	c = malloc(sizeof(struct oqso_ctx));
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
-	}
-
-	/* todo: other initializations when defined */
-
-	c->nbits = 0;
-	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &oqso_algo;
-	ctx->state = TRAS_STATE_INIT;
-
-	return (0);
+	return (sparse_init(ctx, &sp));
 }
 
 int
 oqso_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
-	TRAS_CHECK_UPDATE(ctx, data, nbits);
-
-	/*
-	 * TODO: implementation.
-	 */
-
-	return (ENOSYS);
+	return (sparse_update(ctx, data, nbits));
 }
 
 int
 oqso_final(struct tras_ctx *ctx)
 {
-	struct oqso_ctx *c;
-	double pvalue, sobs;
-	int sum;
 
-	TRAS_CHECK_FINAL(ctx);
-
-	c = ctx->context;
-
-	(void)c;
-
-	/* todo: implementation */
-
-	pvalue = 0.0;
-
-	if (pvalue < c->alpha)
-		ctx->result.status = TRAS_TEST_FAILED;
-	else
-		ctx->result.status = TRAS_TEST_PASSED;
-
-	ctx->result.discard = c->nbits & 0x07;
-	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
-
-	ctx->state = TRAS_STATE_FINAL;
-
-	return (0);
+	return (sparse_final(ctx));
 }
 
 int
 oqso_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
-	return (tras_do_test(ctx, data, nbits));
+	return (sparse_test(ctx, data, nbits));
 }
 
 int
 oqso_restart(struct tras_ctx *ctx, void *params)
 {
-
-	return (tras_do_restart(ctx, params));
+	return (sparse_generic_restart(ctx, &sparse_oqso_params, params));
 }
 
 int
 oqso_free(struct tras_ctx *ctx)
 {
 
-	return (tras_do_free(ctx));
+	return (sparse_free(ctx));
 }
 
 const struct tras_algo oqso_algo = {

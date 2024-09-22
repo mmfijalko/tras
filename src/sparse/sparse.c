@@ -70,25 +70,42 @@ sparse_verify_params(struct tras_ctx *ctx, struct sparse_params *p)
 }
 
 inline static unsigned int
-sparse_max_nbits(struct sparse_ctx *c, struct sparse_params *p)
+sparse_max_nbits(struct sparse_params *p)
 {
 
 	return (((p->wmax + p->k - 1) * p->r));
 }
 
 inline static unsigned int
-sparse_min_nbits(struct sparse_ctx *c, struct sparse_params *p)
+sparse_min_nbits(struct sparse_params *p)
 {
 
-	return (sparse_max_nbits(c, p));
+	return (sparse_max_nbits(p));
+}
+
+static void
+sparse_init_context(struct sparse_ctx *c, void *params)
+{
+	struct sparse_params *p = &c->params;
+
+	if (params != NULL)
+		memcpy(p, params, sizeof(struct sparse_params));
+	c->wmap = (uint8_t *)(c + 1);
+	c->nbits = 0;
+	c->alpha = p->alpha;
+	c->letters = 0;
+	c->lmax = p->wmax + p->k - 1;
+	c->word = 0;
+	c->sparse = (unsigned int)pow(p->m, p->k);
+	c->lmask = (1 << p->b) - 1;
+	c->wmask = (1 << (p->k * p->b)) - 1;
+	memset(c->wmap, 0, c->sparse / 8);
 }
 
 int
 sparse_init(struct tras_ctx *ctx, void *params)
 {
 	struct sparse_params *p = params;
-	struct sparse_ctx *c;
-	unsigned int nwords;
 	int error;
 
 	TRAS_CHECK_INIT(ctx);
@@ -98,88 +115,110 @@ sparse_init(struct tras_ctx *ctx, void *params)
 	if (error != 0)
 		return (error);
 
-	nwords = (unsigned int)pow((double)p->m, (double)p->k);
+	error = tras_init_context(ctx, &sparse_algo, sizeof(struct sparse_ctx) +
+	    (size_t)pow(p->m, p->k) / 8, TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
 
-	c = malloc(sizeof(struct sparse_ctx) + nwords / 8);
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
-	}
-	c->wmap = (uint32_t *)(c + 1);
-	memset(c->wmap, 0, nwords / 8);
-	memcpy(&c->params, params, sizeof(struct sparse_params));
-
-	c->nbits = 0;
-	c->alpha = p->alpha;
-	c->letters = 0;
-	c->lmax = p->wmax + p->k - 1;
-	c->sparse = nwords;
-	c->word = 0;
-
-	ctx->context = c;
-	ctx->algo = &sparse_algo;
-	ctx->state = TRAS_STATE_INIT;
+	sparse_init_context(ctx->context, params);
 
 	return (0);
 }
+
+static uint32_t lmask[32] = {
+	0x00000000, 0x00000001, 0x00000003, 0x00000007,
+	0x0000000f, 0x0000001f, 0x0000003f, 0x0000007f,
+	0x000000ff, 0x000001ff, 0x000003ff, 0x000007ff,
+	0x00000fff, 0x00001fff, 0x00003fff, 0x00007fff,
+	/* ... */
+};
+
+static uint32_t hmask[32] = {
+};
+
+#define	SPARSE_WORD_LETTER(w, b, o)				\
+	((w) >> (o)) & lmask[(b) & 0x1f] 			\
+	(w) << (32 - (((o) + (b)) & 0x1f))
+
+
+/* Add one stroke to the word w */
+#define	SPARSE_WORD_SET(c, p, w, s) do {			\
+	(w) = ((w) << (p)->b) & (c)->wmask;			\
+	(w) = (w) | (((s) >> (32 - (p)->b)) & (c)->lmask);	\
+} while (0)
+
+/* Update words map and sparse counter with a word */
+#define SPARSE_WMAP_SET(c, w) do {				\
+	uint32_t mask, wpos;					\
+	mask = 1 << ((w) & 0x07);				\
+	wpos = (w) >> 3;					\
+	if (((c)->wmap[wpos] & mask) == 0) {			\
+		(c)->wmap[wpos] |= mask;			\
+		(c)->sparse--;					\
+	}							\
+} while (0)
+
+#define	miss(c, cmax)	(((c) < (cmax)) ? (cmax) - (c) : 0)
+
+/* Simple shift right with window */
+#define	SPARSE_SHRW(s, o, b)	\
+	(((s) >> (o)) & ((1 << b) - 1))
+/* Simple shift left with window */
+#define	SPARSE_SHLW(s, o, b)	\
+	(((s) << (o)) & ((1 << b) - 1))
+
+#define	SPARSE_ROTR32(s, o)	\
+	()
+#define	SPARS_ROTL32(s, o)	\
+	()
+#define	SPARSE_ROTR32W(s, o, b)	\
+	()
+#define	SPARSE_ROTL32W(s, o, b)	\
+	()
 
 int
 sparse_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct sparse_params *p;
 	struct sparse_ctx *c;
-	uint32_t *strokes, word, lmask, wmask;
+	uint32_t *strokes, word;
 	unsigned int n, i, k;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	if (nbits & 0x1f)
 		return (EINVAL);
-	if (nbits == 0)
-		return (0);
 
 	c = ctx->context;
 	p = &c->params;
 
-	if (c->letters >= c->lmax) {
-		c->nbits += nbits;
-		return (0);
-	}
-
-	strokes = (uint32_t *)data;
+	k = miss(c->letters, c->lmax);
 	n = nbits / 32;
-
-	k = min(c->letters, p->k);
-	k = min(n, p->k - k);
-
-	lmask = (1 << p->b) - 1;
-	wmask = (1 << (p->k * p->b)) - 1;
-
-	for (i = 0; i < k; i++) {
-		c->word = ((c->word << p->b) & ~lmask) & wmask;
-		c->word |= ((strokes[i] >> (32 - p->b)) & lmask);
-	}
-	c->letters += k;
-	if (c->letters < p->k) {
-		c->nbits += nbits;
-		return (0);
-	}
-
-	n = n - k;
-	n = min(n, c->lmax - c->letters);
-
-	strokes += k;
-	word = c->word;
-	for (i = 0; i < n; i++) {
-		word = ((word << p->b) | ((strokes[i] >> (32 - p->b)) & lmask)) &
-		   wmask;
-		if ((c->wmap[word >> 5] & (1 << (word & 0x1f))) == 0) {
-			c->wmap[word >> 5] |= (1 << (word & 0x1f));
-			c->sparse--;
+	n = min(k, n);
+	if (n > 0) {
+		strokes = (uint32_t *)data;
+		word = c->word;
+		if (c->letters < p->k) {
+			k = min(n, p->k - c->letters);
+			for (i = 0; i < k; i++)
+				SPARSE_WORD_SET(c, p, word, strokes[i]);
+			c->letters += k;
+			if (c->letters < p->k) {
+				c->word = word;
+				c->nbits += nbits;
+				return (0);
+			}
+			SPARSE_WMAP_SET(c, word);
+			n = n - k;
+			strokes += k;
 		}
+		for (i = 0; i < n; i++) {
+			SPARSE_WORD_SET(c, p, word, strokes[i]);
+			SPARSE_WMAP_SET(c, word);
+		}
+		c->word = word;
+		c->letters += n;
 	}
-	c->word = word;
-	c->letters += n;
 	c->nbits += nbits;
 
 	return (0);
@@ -197,7 +236,7 @@ sparse_final(struct tras_ctx *ctx)
 	c = ctx->context;
 	p = &c->params;
 
-	if (c->nbits < sparse_min_nbits(c, p))
+	if (c->nbits < sparse_min_nbits(p))
 		return (EALREADY);
 
 	s = (double)c->sparse - p->mean;
@@ -209,13 +248,13 @@ sparse_final(struct tras_ctx *ctx)
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.discard = c->nbits - sparse_max_nbits(c, p);
+	ctx->result.discard = c->nbits - sparse_max_nbits(p);
 	ctx->result.stats1 = (double)c->sparse;
 	ctx->result.stats2 = s;
 	ctx->result.pvalue1 = pvalue;
 	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
@@ -230,30 +269,16 @@ sparse_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 int
 sparse_restart(struct tras_ctx *ctx, void *params)
 {
-	struct sparse_ctx *c;
-	struct sparse_params *p;
-	unsigned int nwords;
 
 	if (ctx == NULL)
 		return (EINVAL);
 
 	if (params != NULL)
 		return (tras_do_restart(ctx, params));
-
-	if (ctx->state != TRAS_STATE_FINAL)
-		return (ENXIO);
-	if (ctx->state != TRAS_STATE_INIT)
+	if (!TRAS_IS_INITED(ctx))
 		return (ENXIO);
 
-	c = ctx->context;
-	p = &c->params;
-
-	nwords = (unsigned int)pow((double)p->m, (double)p->k);
-
-	c->nbits = 0;
-	c->letters = 0;
-	c->sparse = nwords;
-	memset(c->wmap, 0, nwords / 8);
+	sparse_init_context(ctx->context, NULL);
 
 	return (0);
 }
@@ -277,3 +302,37 @@ const struct tras_algo sparse_algo = {
 	.restart =	sparse_restart,
 	.free =		sparse_free,
 };
+
+int
+sparse_set_params(struct sparse_params *sp, const struct sparse_params *spin,
+    struct oxso_params *params)
+{
+	struct oxso_params *p = (struct oxso_params *)params;
+
+	TRAS_CHECK_PARA(p, p->alpha);
+
+	memcpy(sp, spin, sizeof(struct sparse_params));
+
+	sp->alpha = p->alpha;
+	sp->boff = p->boff;
+
+	return (0);
+}
+
+int
+sparse_generic_restart(struct tras_ctx *ctx, const struct sparse_params *spin,
+    void *params)
+{
+	struct sparse_params sp;
+	void *p = params;
+	int error;
+
+	if (params != NULL) {
+		error = sparse_set_params(&sp, spin, params);
+		if (error != 0)
+			return (error);
+		p = (void *)&sp;
+	}
+
+	return (sparse_restart(ctx, p));
+}
