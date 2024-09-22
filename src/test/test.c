@@ -35,6 +35,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
@@ -91,64 +92,27 @@ struct squeeze_params squeeze_params = {
 	.alpha = 0.05,
 };
 
-struct dna_params dna_params = {
+struct oxso_params dna_params = {
+	.boff = 30,
 	.alpha = 0.01,
 };
 
-struct dna_params opso_params = {
+struct oxso_params opso_params = {
+	.boff = 22,
 	.alpha = 0.01,
 };
 
-struct dna_params otso_params = {
+struct oxso_params otso_params = {
+	.boff = 26,
+	.alpha = 0.01,
+};
+
+struct oxso_params oqso_params = {
+	.boff = 27,
 	.alpha = 0.01,
 };
 
 struct bstream_params bstream_params = {
-	.alpha = 0.01,
-};
-
-struct sparse_params sparse_params_opso = {
-	.m = 1024,
-	.k = 2,
-	.b = 10,
-	.r = 32,
-	.wmax = SPARSE_MAX_WORDS,
-	.mean = 141909.3299550069,
-	.var = 290.4622634038,
-	.alpha = 0.01,
-};
-
-struct sparse_params sparse_params_otso = {
-	.m = 64,
-	.k = 3,
-	.b = 6,
-	.r = 32,
-	.wmax = SPARSE_MAX_WORDS,
-//	.mean = 87.9395,
-	.mean = 87.85,
-	.var = 9.37,
-	.alpha = 0.01,
-};
-
-struct sparse_params sparse_params_oqso = {
-	.m = 32,
-	.k = 4,
-	.b = 5,
-	.r = 32,
-	.wmax = SPARSE_MAX_WORDS,
-	.mean = 141909.6005321316,
-	.var = 294.6558723658,
-	.alpha = 0.01,
-};
-
-struct sparse_params sparse_params_dna = {
-	.m = 4,
-	.k = 10,
-	.b = 2,
-	.r = 32,
-	.wmax = SPARSE_MAX_WORDS,
-	.mean = 141910.4026047629,
-	.var = 337,0,
 	.alpha = 0.01,
 };
 
@@ -234,19 +198,10 @@ static const struct test_algo algo_list[] = {
 	{ "bspace", &bspace_algo, &bspace_params },
 	{ "c1tsbits", NULL, NULL },
 	{ "craps", &craps_algo, &craps_params },
-
-	{ "sparse_opso", &sparse_algo, &sparse_params_opso },
-	{ "sparse_otso", &sparse_algo, &sparse_params_otso },
-	{ "sparse_oqso", &sparse_algo, &sparse_params_oqso },
-	{ "sparse_dna", &sparse_algo, &sparse_params_dna },
-
 	{ "opso", &opso_algo, &opso_params },
 	{ "otso", &otso_algo, &otso_params },
 	{ "oqso", &oqso_algo, &oqso_params },
 	{ "dna", &dna_algo, &dna_params },
-
-	{ "dna_sparse", &dna_sparse_algo, NULL },	/* ??? */
-
 	{ "excursion", &excursion_algo, &excursion_params },
 	{ "excursionv", &excursionv_algo, &excursionv_params },
 	{ "kstest", NULL, NULL },
@@ -295,7 +250,7 @@ test_usage(void)
 	printf("synopsis: test [hlt]\n");
 	printf("-h        : print usage of the application\n");
 	printf("-l        : print list of algorithms\n");
-	printf("-t        : run statistical test\n");	
+	printf("-t        : run statistical test\n");
 }
 
 static int
@@ -305,6 +260,14 @@ test_cmd_list(void)
 	printf("test: printing list of algorithms\n");
 
 	return (ENOTSUP);
+}
+
+static void
+test_shift_data(void *data, size_t size, int offs)
+{
+	char *p;
+
+	/* todo: */
 }
 
 static int
@@ -334,6 +297,63 @@ test_getuint(const char *str, unsigned int *ival)
 	if (lval < 0 || lval > (long)UINT_MAX)
 		return (EINVAL);
 	*ival = (unsigned int)lval;
+
+	return (0);
+}
+
+struct mulstr {
+	const char *	str;
+	unsigned long	mul;
+};
+
+static const struct mulstr test_mulstr[] = {
+	{ .str = "b",  .mul = 1, },
+	{ .str = "B",  .mul = 8, },
+	{ .str = "kb", .mul = 1024, },
+	{ .str = "Mb", .mul = 1024 * 1024, },
+	{ .str = "Gb", .mul = 1024 * 1024 * 1024, },
+	{ .str = "kB", .mul = 8 * 1024, },
+	{ .str = "MB", .mul = 8 * 1024 * 1024, },
+//	{ .str = "GB", .mul = 8 * 1024 * 1024 * 1024 },
+	{ .str = NULL, .mul = 0, },
+};
+
+static int
+test_getsize(char *str, unsigned int *ival)
+{
+	const struct mulstr *m = test_mulstr;
+	char *p = str, *ep, c;
+	long lval;
+	unsigned int mul;
+
+	if (str == NULL || ival == NULL)
+		return (EINVAL);
+
+	mul = 1;
+
+	lval = strtoul(str, &ep, 0);
+	if (lval == 0 && errno != 0)
+		return (errno);
+	if (lval == ULONG_MAX)
+		return (errno);
+	if (lval < 0)
+		return (EINVAL);
+	if (*ep != '\0') {
+		if (strncmp(str, "0x", 2) == 0)
+			return (EINVAL);
+		while (m->str != NULL) {
+			if (strcmp(m->str, ep) == 0)
+				break;
+			m++;
+		}
+		if (m->str == NULL)
+			return (EINVAL);
+		mul = m->mul;
+	} 
+	if (lval >= ULONG_MAX / mul)
+		return (EINVAL);
+
+	*ival = (unsigned int)(lval * mul);
 
 	return (0);
 }
@@ -379,6 +399,8 @@ test_show_result(const struct tras_algo *algo, struct tras_ctx *ctx, int id)
 	    (ctx->result.status == TRAS_TEST_PASSED) ? "success" : "failed");
 }
 
+#define miss(c, cmax)   (((c) < (cmax)) ? (cmax) - (c) : 0)
+
 static int
 test_cmd_test(void)
 {
@@ -393,11 +415,14 @@ test_cmd_test(void)
 		printf("test not implemented yet\n");
 		return (EINVAL);
 	}
+	if (test_maxnbits == 0) {
+		printf("number of bits to test not specified\n");
+		return (EINVAL);
+	}
 
 	tras_ctx_init(&ctx);
 
 	algo = test_desc->algo;
-
 	error = algo->init(&ctx, test_desc->params);
 	if (error != 0) {
 		printf("test failed to init %s algorithm\n", algo->name);
@@ -406,7 +431,6 @@ test_cmd_test(void)
 
 	size = test_desc->blocksize;
 	size = size ? size : 2048;
-
 	data = malloc(size);
 	if (data == NULL) {
 		algo->free(&ctx);
@@ -414,63 +438,47 @@ test_cmd_test(void)
 	}
 	ntest = 0;
 	nread = 0;
+	id = 0;
 
-	id = 1;
 	n = (test_total > 0) ? test_total : UINT_MAX;
 
 	while (n > 0) {
-		nread = min(size, n);
-		error = test_stdin_read(data, &nread);
-		if (error != 0 || nread == 0)
-			break;
-
-		nread = nread * 8;
-
-		if (test_maxnbits > 0) {
-			nupd = min(test_maxnbits, ntest);
-			nupd = test_maxnbits - nupd;
-		} else {
-			nupd = UINT_MAX;
-		}
-		nupd = min(nupd, nread);
-
-		if (nupd > 0) {
-			error = algo->update(&ctx, data, nupd);
-			if (error != 0) {
-				printf("test: failed to updadate data for %s test\n",
-				    algo->name);
-				break;
-			}
-			ntest += nupd;
-		}
-		if (test_maxnbits > 0) {
-			nupd = test_maxnbits - ntest;
-			if (nupd == 0) {
-				error = algo->final(&ctx);
-				if (error != 0)
-					break;
-				restart = 1;
-			}
-		} else {
-			error = algo->final(&ctx);
-			if (error != 0) {
-				if (error != EALREADY)
-					break;
-			} else {
-				restart = 1;
-			}
-		}
-
-		if (restart) {
-			test_show_result(algo, &ctx, id);
+		if (ntest == 0 && id != 0) {
 			error = algo->restart(&ctx, test_desc->params);
 			if (error != 0) {
 				printf("test: failed to restart %s test\n",
 				    algo->name);
 				break;
 			}
+		}
+
+		nread = min(size, n);
+		error = test_stdin_read(data, &nread);
+		if (error != 0 || nread == 0)
+			break;
+
+		nread = nread * 8;
+		nupd = miss(ntest, test_maxnbits);
+		nupd = min(nupd, nread);
+
+		if (nupd > 0) {
+			error = algo->update(&ctx, data, nupd);
+			if (error != 0) {
+				printf("test: failed to update data for %s test (%d)\n",
+				    algo->name, error);
+				break;
+			}
+			ntest += nupd;
+		}
+		nupd = miss(ntest, test_maxnbits);
+		if (nupd == 0) {
+			error = algo->final(&ctx);
+			if (error != 0) {
+				printf("failed to finalize the test (%d)\n", error);
+				break;
+			}
+			test_show_result(algo, &ctx, id + 1);
 			ntest = 0;
-			restart = 0;
 			id++;
 		}
 		n = n - nread;
@@ -527,8 +535,8 @@ int main(int argc, char *argv[])
 				return (error);
 			}
 		case 's':
-			break;
-			error = test_getuint(optarg, &test_maxnbits);
+			error = test_getsize(optarg, &test_maxnbits);
+//			error = test_getuint(optarg, &test_maxnbits);
 			if (error != 0) {
 				printf("test: invalid max nbits for the test\n");
 				return (error);
