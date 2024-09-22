@@ -43,6 +43,8 @@
 #include <approxe.h>
 #include <sparse.h>
 #include <opso.h>
+#include <otso.h>
+#include <oqso.h>
 #include <dna.h>
 #include <bstream.h>
 #include <cusum.h>
