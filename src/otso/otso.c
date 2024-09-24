@@ -28,7 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * The DNA Test.
+ * The Overlapping-Triples-Sparse-Occupancy test (OTSO).
  */
 
 #include <stdint.h>
@@ -40,32 +40,40 @@
 
 #include <tras.h>
 #include <utils.h>
-#include <cdefs.h>
 #include <bits.h>
-
 #include <sparse.h>
-#include <dna.h>
+#include <otso.h>
+
+	#include <stdio.h>
 
 /*
- * The DNA test parameters encoded as sparse parameters.
+ * The OTSO test parameters encoded as sparse parameters.
  */
-static const struct sparse_params sparse_dna_params = {
-	.m = 4,
-	.k = 10,
-	.b = 2,
+static const struct sparse_params sparse_otso_params = {
+	.m = 64,
+	.k = 3,
+	.b = 6,
 	.r = 32,
 	.wmax = SPARSE_MAX_WORDS,
-	.mean = 141910.4026047629,
-	.var = 337,0,
+//	.mean = 87.9395,
+	.mean = 87.85,
+	.var = 9.37,
 };
 
+static inline int
+otso_set_params(struct sparse_params *sp, void *params)
+{
+
+	return (sparse_set_params(sp, &sparse_otso_params, params));
+}
+
 int
-dna_init(struct tras_ctx *ctx, void *params)
+otso_init(struct tras_ctx *ctx, void *params)
 {
 	struct sparse_params sp;
 	int error;
 
-	error = sparse_set_params(&sp, &sparse_dna_params, params);
+	error = otso_set_params(&sp, params);
 	if (error != 0)
 		return (error);
 
@@ -73,49 +81,49 @@ dna_init(struct tras_ctx *ctx, void *params)
 }
 
 int
-dna_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+otso_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
 	return (sparse_update(ctx, data, nbits));
 }
 
 int
-dna_final(struct tras_ctx *ctx)
+otso_final(struct tras_ctx *ctx)
 {
 
 	return (sparse_final(ctx));
 }
 
 int
-dna_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
+otso_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
 	return (sparse_test(ctx, data, nbits));
 }
 
 int
-dna_restart(struct tras_ctx *ctx, void *params)
+otso_restart(struct tras_ctx *ctx, void *params)
 {
 
-	return (sparse_generic_restart(ctx, &sparse_dna_params, params));
+	return (sparse_generic_restart(ctx, &sparse_otso_params, params));
 }
 
 int
-dna_free(struct tras_ctx *ctx)
+otso_free(struct tras_ctx *ctx)
 {
 
 	return (sparse_free(ctx));
 }
 
-const struct tras_algo dna_algo = {
-	.name =		"dna",
-	.desc =		"Four Letters C,G,A,T words test using sparse.",
+const struct tras_algo otso_algo = {
+	.name =		"otso",
+	.desc =		"Overlapping-Triples-Sparse-Occupancy Test",
 	.id =		0,
 	.version =	{ 0, 1, 1 },
-	.init =		dna_init,
-	.update =	dna_update,
-	.test =		dna_test,
-	.final =	dna_final,
-	.restart =	dna_restart,
-	.free =		dna_free,
+	.init =		otso_init,
+	.update =	otso_update,
+	.test =		otso_test,
+	.final =	otso_final,
+	.restart =	otso_restart,
+	.free =		otso_free,
 };

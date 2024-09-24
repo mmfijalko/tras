@@ -43,6 +43,8 @@
 #include <hamming8.h>
 #include <frequency.h>
 
+		#include <stdio.h>
+
 /*
  * The generic frequency test context.
  */
@@ -115,7 +117,7 @@ unsigned int
 frequency_sum3(void *data, unsigned int nbits)
 {
 	unsigned int sum, i, n;
-	uint32_t *p;
+	uint32_t *p, last;
 	uint8_t *p8;
 
 	n = nbits >> 5;
@@ -123,10 +125,14 @@ frequency_sum3(void *data, unsigned int nbits)
 
 	for (i = 0, sum = 0; i < n; i++, p++)
 		sum += bitcount_32(*p);
-	for (p8 = (uint8_t *)p; n >= 8; n -= 8)
-		sum += hamming8[*p8];
+	p8 = (uint8_t *)p;
+	n = (nbits & 0x1f) >> 3;
+	for (i = 0, last = 0; i < n; i++)
+		last = (last << 8) | (uint32_t)(*p8++);
+	n = nbits & 0x07;
 	if (n > 0)
-		sum += hamming8[*p8 & mmask8[n]];
+		last = (last << 8) | (uint32_t)(*p8 & mmask8[n]);
+	sum += bitcount_32(last);
 
 	return (sum);
 }
@@ -204,7 +210,6 @@ int
 frequency_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct frequency_ctx *c;
-
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	c = ctx->context;
