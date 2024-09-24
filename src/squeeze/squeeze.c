@@ -39,17 +39,21 @@
 #include <math.h>
 
 #include <tras.h>
+#include <cdefs.h>
 #include <squeeze.h>
 
 /*
  * The context structure for the squeeze test.
  */
 struct squeeze_ctx {
-	unsigned int	nbits;	/* number of bits processed */
 	unsigned int	nint;	/* number of integers processed */
 	unsigned int *	freqt;	/* frequency table for iterations */
 	unsigned int	nfreq;	/* number of slots for chi-square */
+	unsigned int	klast;	/* squeezed value from last update */
+	unsigned int	ilast;	/* the iterations from last update */
+	unsigned int	nword;	/* the number of words updated */
 	unsigned int	K;	/* max number of integers */
+	unsigned int	nbits;	/* number of bits processed */
 	double		alpha;	/* significance level for H0 */
 };
 
@@ -76,11 +80,11 @@ squeeze_init(struct tras_ctx *ctx, void *params)
 	error = tras_init_context(ctx, &squeeze_algo, size, TRAS_F_ZERO);
 	if (error != 0)
 		return (error);
-
 	c = ctx->context;
 
 	c->freqt = (unsigned int *)(c + 1);
 	c->nfreq = SQUEEZE_CHI_SQUARE_SLOTS;
+	c->klast = 2147483647;
 	c->K = p->K;
 	c->alpha = p->alpha;
 
@@ -98,23 +102,6 @@ squeeze_uint_to_floatU01(uint32_t u32)
 	return ((double)u32 / pow(2.0, 32));
 }
 
-static unsigned int
-squeeze_iterations(uint32_t u32)
-{
-	unsigned int k, i;
-	double u;
-
-	k = 1UL << 31;
-	u = squeeze_uint_to_floatU01(u32);
-	i = 0;
-
-	while ((i < 48) && (k != 1)) {
-		k = (unsigned int)ceil(u * k);
-		i++;
-	}
-	return (i);
-}
-
 /*
  * Update state of the squeeze test with subsequent binary sequence.
  */
@@ -122,7 +109,9 @@ int
 squeeze_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct squeeze_ctx *c;
-	unsigned int *u, i, n;
+	unsigned int i, n, j, k;
+	double u;
+	uint32_t *p;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
@@ -130,19 +119,38 @@ squeeze_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 		return (EINVAL);
 
 	c = ctx->context;
-	u = (unsigned int *)data;	/* TODO: consider endianism */
-	n = nbits;
+	p = (uint32_t *)data;	/* TODO: consider endianism */
 
-	while (n > 0) {
-		if (c->nint >= c->K)
-			break;
-		i = squeeze_iterations(*u);
-		i = (i <= 6) ? 0 : i - 6;
-		c->freqt[i]++;
-		c->nint++;
-		u++;
-		n -= 32;
+	/* Restore k and i from last update */
+	k = c->klast;
+	i = c->ilast;
+
+	/* Get maximum number of squeezes and words from data */
+	n = nbits / 32;
+	j = min(c->nint, c->K);
+	j = c->K - j;
+
+	while (n > 0 && j > 0) {
+		while (n > 0 && i < 48 && k != 1) {
+			u = squeeze_uint_to_floatU01(*p);
+			k = (unsigned int)ceil(u * k);
+			i++;
+			u++;
+			n--;
+			p++;
+		}
+		if (i >= 48 || k == 1) {
+			i = (i < 6) ? 0 : i - 6;
+			c->freqt[i]++;
+			c->nint++;
+			k = 2147483647;
+			i = 0;
+			j--;
+		}
 	}
+	c->nword += nbits / 32 - n;
+	c->klast = k;
+	c->ilast = i;
 	c->nbits += nbits;
 
 	return (0);
@@ -166,13 +174,15 @@ squeeze_final(struct tras_ctx *ctx)
 
 	pvalue = 0.0;
 
-	/* Determine and store results */
+	/*
+	 * Determine and store results.
+	 */
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.discard = c->nbits - c->K * sizeof(unsigned int) * 8;
+	ctx->result.discard = c->nbits - c->nword * sizeof(uint32_t) * 8;
 	ctx->result.pvalue1 = pvalue;
 
 	tras_fini_context(ctx, 0);
