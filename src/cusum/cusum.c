@@ -46,8 +46,8 @@
 #include <const.h>
 #include <cusum.h>
 
+#include <stdio.h>
 
-	#include <stdio.h>
 /*
  * The table represent a absolute of minimum value for
  * random walk for each 8-bit sequence, where 0 represents
@@ -128,7 +128,7 @@ cusum_init(struct tras_ctx *ctx, void *params)
 static int
 cusum_update_forward(struct cusum_ctx *c, void *data, unsigned int nbits)
 {
-	uint8_t *p = (uint8_t *)data;
+	uint8_t *p = (uint8_t *)data, m;
 	unsigned int i, n;
 	int mins, maxs;
 
@@ -145,8 +145,8 @@ cusum_update_forward(struct cusum_ctx *c, void *data, unsigned int nbits)
 
 	if (nbits & 0x07) {
 		n = nbits & 0x07;
-		for (i = 0; i < n; i++) {
-			if (*p & (1 << (7 - i))) {
+		for (i = 0, m = 0x80; i < n; i++, m >>= 1) {
+			if (*p & m) {
 				if (c->sum == c->maxs)
 					c->maxs++;
 				c->sum++;
@@ -162,66 +162,10 @@ cusum_update_forward(struct cusum_ctx *c, void *data, unsigned int nbits)
 	return (0);
 }
 
-static int
-cusum_update_bacward_contig(struct cusum_ctx *ctx, void *data, unsigned int nbits);
+#define	BIT(p, b)	((p)[b / 8] & (0x80 >> ((b) & 0x07)))
 
 static int
-cusum_update_backward(struct cusum_ctx *c, void *data, unsigned int nbits)
-{
-	unsigned int i, n, m;
-	uint8_t *p, mask;
-
-	if (c->nbits != 0)
-		return (ENXIO);
-	if (nbits < CUSUM_MIN_BITS)
-		return (EBADMSG);
-
-	/*
-	 * The only one update call. We cannot run the sequence of the
-	 * updates because the algorithm needs all bits at a clip.
-	 */
-	n = (nbits + 7) / 8;
-	p = (uint8_t *)data + n - 1;
-	n = nbits;
-
-	while (n > 0) {
-		if (n & 0x07) {
-			m = n & 0x07;
-			mask = 0x80 >> (m - 1);
-//			mask = 0x80 >> m;
-		} else {
-			m = 8;
-			mask = 0x01;
-		}
-		for (i = 0; i < m; i++, mask <<= 1) {
-			if (*p & mask) {
-				c->sum++;
-				if (c->sum > c->maxs)
-					c->maxs = c->sum;
-			} else {
-				c->sum--;
-				if (c->sum < c->mins)
-					c->mins = c->sum;
-			}
-		}
-		n = n - m;
-		p--;
-	}
-	c->nbits += nbits;
-printf("%s: p = %p, data = %p\n", __func__, p, data);
-
-cusum_update_bacward_contig(c, data, nbits);
-
-	return (0);
-}
-
-#include <stdio.h>
-
-#define	BIT(p, b)	\
-	((p)[b / 8] & (0x80 >> ((b) & 0x07)))
-
-static int
-cusum_update_bacward_contig(struct cusum_ctx *ctx, void *data, unsigned int nbits)
+cusum_update_backward_contig(struct cusum_ctx *ctx, void *data, unsigned int nbits)
 {
 	unsigned int i;
 	uint8_t *p;
@@ -269,6 +213,56 @@ cusum_update_bacward_contig(struct cusum_ctx *ctx, void *data, unsigned int nbit
 	return (0);
 }
 
+static int
+cusum_update_backward(struct cusum_ctx *c, void *data, unsigned int nbits)
+{
+	unsigned int i, n, m;
+	uint8_t *p, mask;
+
+	if (c->nbits != 0)
+		return (ENXIO);
+	if (nbits < CUSUM_MIN_BITS)
+		return (EBADMSG);
+
+	/*
+	 * The only one update call. We cannot run the sequence of the
+	 * updates because the algorithm needs all bits at a clip.
+	 */
+	n = (nbits + 7) / 8;
+	p = (uint8_t *)data + n - 1;
+	n = nbits;
+
+	while (n > 0) {
+		if (n & 0x07) {
+			m = n & 0x07;
+			mask = 0x80 >> (m - 1);
+//			mask = 0x80 >> m;
+		} else {
+			m = 8;
+			mask = 0x01;
+		}
+		for (i = 0; i < m; i++, mask <<= 1) {
+			if (*p & mask) {
+				c->sum++;
+				if (c->sum > c->maxs)
+					c->maxs = c->sum;
+			} else {
+				c->sum--;
+				if (c->sum < c->mins)
+					c->mins = c->sum;
+			}
+		}
+		n = n - m;
+		p--;
+	}
+	c->nbits += nbits;
+printf("%s: p = %p, data = %p\n", __func__, p, data);
+
+cusum_update_backward_contig(c, data, nbits);
+
+	return (0);
+}
+
 int
 cusum_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
@@ -307,10 +301,7 @@ cusum_final(struct tras_ctx *ctx)
 	if (c->nbits < CUSUM_MIN_BITS)
 		return (EALREADY);
 
-	z = (abs(c->mins) > c->maxs) ? abs(c->mins) : c->maxs;
-printf("final stats = %d\n", z);
-	z = (abs(c->mins) > abs(c->maxs)) ? abs(c->mins) : abs(c->maxs);
-printf("final stats = %d\n", z);
+	z = max(abs(c->mins), abs(c->maxs));
 
 	n = (int)c->nbits;
 	sqrtn = sqrt(c->nbits);
