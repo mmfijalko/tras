@@ -62,11 +62,10 @@ struct point {
  * The context structure for the 3D spheres test.
  */
 struct sphere3d_ctx {
-	unsigned int	nbits;	/* number of bits processed */
-	unsigned int	ntups;	/* number of tuples stored */
 	struct point *	points;	/* points list for update */
 	unsigned int	npoint;	/* number of points updated */
-	unsigned int	K;	/* */
+	unsigned int	K;	/* the maximum number of points */
+	unsigned int	nbits;	/* number of bits processed */
 	double		alpha;	/* significance level for H0 */
 };
 
@@ -79,6 +78,7 @@ sphere3d_init(struct tras_ctx *ctx, void *params)
 	struct sphere3d_params *p = params;
 	struct sphere3d_ctx *c;
 	size_t size;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
@@ -92,21 +92,16 @@ sphere3d_init(struct tras_ctx *ctx, void *params)
 	 * to malloc and keep all incomming data when K is limited.
 	 */
 	size = sizeof(struct sphere3d_ctx) + p->K * sizeof(struct point);
-	c = malloc(size);
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
-	}
+
+	error = tras_init_context(ctx, &sphere3d_algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+
+	c = ctx->context;
 
 	c->points = (struct point *)(c + 1);
-	c->npoint = 0;
-	c->nbits = 0;
 	c->K = p->K;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &sphere3d_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -179,36 +174,46 @@ int
 sphere3d_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct sphere3d_ctx *c;
-	unsigned int n;
+	struct point *p;
+	unsigned int n, b, k;
 	uint32_t *d;
-	double *v;
+	double coord;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	if (nbits == 0 || (nbits & 0x1f))
 		return (EINVAL);
 
-	/*
-	 * TODO: no check for number of points processed.
-	 */
-
 	c = ctx->context;
-
 	d = (uint32_t *)data;
-	n = c->nbits / 32;
-	v = ((double *)c->points) + n;
-	c->nbits += nbits;
-	while (nbits > 0) {
-		if (c->npoint >= c->K)
-			break;
-		*v = sphere3d_point_component(*d);
-		v++;
+
+	/*
+	 * todo: what about endiannes ???
+	 */
+	b = c->nbits / 32;
+	b = min(b, 3 * c->K);
+
+	p = &c->points[b / 3];
+	n = 3 * c->K - b;
+	n = min(n, nbits / 32);
+
+	while (n > 0) {
+		coord = sphere3d_point_component(*d);
+		k = b % 3;
+		if (k == 0)
+			p->x = coord;
+		else if (k == 1)
+			p->y = coord;
+		else {
+			p->z = coord;
+			p++;
+		}
+		b++;
 		d++;
-		n++;
-		if ((n % 3) == 0)
-			c->npoint++;
-		nbits -= 32;
+		n--;
 	}
+	c->npoint = b / 3;
+	c->nbits += nbits;
 
 	return (0);
 }
@@ -251,11 +256,9 @@ sphere3d_final(struct tras_ctx *ctx)
 
 	ctx->result.discard = c->nbits - SPHERE3D_MIN_NBITS;
 	ctx->result.stats1 = r3min;
-	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0.0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
