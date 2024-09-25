@@ -11,7 +11,7 @@ VPATH+=${CURDIR}/../sparse/
 
 LDFLAGS=-lm
 
-all: sparse.o opso.o hamming8.o utils.o tras.o
+all: otso.o hamming8.o utils.o tras.o
 
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@

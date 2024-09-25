@@ -27,34 +27,19 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
  */
 
-#ifndef	__ALGOS_H__
-#define	__ALGOS_H__
+#ifndef __OTSO_H__
+#define	__OTSO_H__
 
-#include <frequency.h>
-#include <blkfreq.h>
-#include <runs.h>
-#include <longruns.h>
-#include <sphere3d.h>
-#include <mindist.h>
-#include <plot.h>
-#include <squeeze.h>
-#include <approxe.h>
-#include <sparse.h>
-#include <opso.h>
-#include <otso.h>
-#include <oqso.h>
-#include <dna.h>
-#include <bstream.h>
-#include <cusum.h>
-#include <excursion.h>
-#include <excursionv.h>
-#include <universal.h>
-#include <maurer.h>
-#include <coron.h>
-#include <bspace.h>
-#include <craps.h>
-#include <chi2.h>
+struct otso_params {
+	unsigned int boff;
+	double	alpha;	/* significance level for H0 */
+};
+
+TRAS_DECLARE_ALGO(otso)
 
 #endif
+
+
