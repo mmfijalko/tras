@@ -37,7 +37,8 @@
  * The DNA test parameters structure.
  */
 struct dna_params {
-	double	alpha;	/* significance level for H0 */
+	unsigned int	boff;	/* letter bits offset in rng word */
+	double		alpha;	/* significance level for H0 */
 };
 
 /* The number of possible 10 DNA letters words, 2 ^ 20 */
@@ -55,13 +56,7 @@ struct dna_params {
 #define	DNA_MIN_BITS		DNA_BITS	/* minimum nuber of bits */
 #define	DNA_MAX_BITS		DNA_BITS	/* maximum number of bits */
 
-#define DNA_L_MASK		0x03
-#define	DNA_WORD_MASK		0x000fffff	/* mask for bits in stroke */
-#define	DNA_LETTER_MASK		0x00000003	/* mask bits for letter */
-
 TRAS_DECLARE_ALGO(dna);
-
-TRAS_DECLARE_ALGO(dna_sparse);
 
 #endif
 

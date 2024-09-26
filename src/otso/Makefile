@@ -3,15 +3,15 @@ CFLAGS=	-g
 CFLAGS+=-I${CURDIR}
 CFLAGS+=-I${CURDIR}/../include/
 CFLAGS+=-I${CURDIR}/../utils/
-CFLAGS+=-I${CURDIR}/../cephes/
+CFLAGS+=-I${CURDIR}/../sparse/
 
 VPATH+=${CURDIR}/../utils/
 VPATH+=${CURDIR}/../tras/
-VPATH+=${CURDIR}/../cephes/
+VPATH+=${CURDIR}/../sparse/
 
 LDFLAGS=-lm
 
-all: utils.o tras.o igamc.o chi2.o chi2_utils.o
+all: otso.o hamming8.o utils.o tras.o
 
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@
