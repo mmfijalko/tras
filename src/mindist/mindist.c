@@ -43,6 +43,8 @@
 #include <bits.h>
 #include <mindist.h>
 
+#include <stdio.h>
+
 /*
  * Vector respresenting point in 2D space.
  */
@@ -156,19 +158,16 @@ mindist_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 
 	c = ctx->context;
 	d = (uint32_t *)data;	/* endianism ??? */
-
-	/*
-	 * Get current number of coordinates updated.
-	 */
-	b = c->nbits / 32;
-	b = min(b, 2 * c->K);
+	p = c->points + c->npoint;
 
 	/*
 	 * Get number of coordinates to update.
 	 */
+	b = c->nbits / 32;
+	b = min(b, 2 * c->K);
 	n = 2 * c->K - b;
 	n = min(n, nbits / 32);
-	p = c->points + c->npoint;
+
 	while (n > 0) {
 		if (b & 0x01) {
 			p->y = mindist_point_component(*d);
