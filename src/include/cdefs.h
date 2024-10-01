@@ -37,4 +37,6 @@
 
 #define	abs(a)		(((a) < 0) ? -(a) : (a))
 
+#define	miss(c, cmax)	(((c) < (cmax)) ? (cmax) - (c) : 0)
+
 #endif
