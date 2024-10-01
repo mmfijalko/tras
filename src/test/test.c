@@ -147,11 +147,11 @@ struct excursionv_params excursionv_params = {
 };
 
 struct bspace_params bspace_params = {
-	.b = 0,			/* for test purpose only */
 	.m = 512,		/* 2 ^ 9 */
-	.q = 24,		/* 24 least significance bits */
 	.n = 16 * 1024 * 1024,	/* 2 ^ 24 */
-	.nk = 0,		/* ??? */
+	.b = 0,			/* for test purpose only */
+	.q = 24,		/* 24 least significance bits */
+	.jn = 200,		/* number of sub-tests */
 	.alpha = 0.01,		/* significance level */
 };
 
