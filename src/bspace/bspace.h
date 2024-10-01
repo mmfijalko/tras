@@ -34,11 +34,11 @@
 #define	__BSPACE_H__
 
 struct bspace_params {
-	unsigned int	b;	/* bit offset in integer */
 	unsigned int	m;	/* number of birthdays */
-	unsigned int	q;	/* number of bits per day */
 	unsigned int	n;	/* number of days in a year */
-	unsigned int	nk;	/* number of K values in chi2 */
+	unsigned int	b;	/* bit offset in integer */
+	unsigned int	q;	/* number of bits per day */
+	unsigned int	jn;	/* number of j's stats for chi2 */
 	double		alpha;	/* significance level for H0 */
 };
 
@@ -50,6 +50,9 @@ struct bspace_params {
 
 #define	BSPACE_MIN_BIT_OFFSET	0
 #define	BSPACE_MAX_BIT_OFFSET	7
+
+#define	BSPACE_MIN_JN		200
+#define	BSPACE_MAX_JN		500
 
 TRAS_DECLARE_ALGO(bspace);
 

@@ -28,6 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * The Birthday Spacings Test.
  * The Minimum Distance Test.
  */
 
@@ -48,20 +49,19 @@
 #include <stdio.h>
 
 /*
- * The minimum distance test context.
+ * The birthday spacings test context.
  */
 struct bspace_ctx {
-	unsigned int	nbits;	/* number of bits processed */
-	unsigned int	s;	/* shift/bit offset for integer */
 	unsigned int	m;	/* number of birthdays */
-	unsigned int	q;	/* number of bits for a day */
 	unsigned int	n;	/* number of days in a year */
-	unsigned int	nk;	/* number of K values for chi2 */
+	unsigned int	q;	/* number of bits for a day */
+	unsigned int	b;	/* shift/bit offset for integer */
 	unsigned int	ik;	/* current number of K values */
 	unsigned int *	K;	/* ??? */
 	double *	pprob;	/* Poisson theoretical probabilities */
 	unsigned int *	bdays;	/* birthdays list for single K */
 	unsigned int *	intvs;	/* intervals table */
+	unsigned int	nbits;	/* number of bits processed */
 	double		alpha;	/* significance level for H0 */
 };
 
@@ -107,9 +107,6 @@ quicksort_int(unsigned int *table, int l, int r)
 	quicksort_int(table, a + 1, r);
 }
 
-/*
- * XXX: tested with other application and random data.
- */
 static void
 quicksort(unsigned int *table, int n)
 {
@@ -164,6 +161,9 @@ bspace_extract32(void *d, int o, int q)
 	return (bspace_be32enc(d) & 0x00ffffff);
 }
 
+static double
+bspace_poison_pdf(int k, double lambda);
+
 int
 bspace_init(struct tras_ctx *ctx, void *params)
 {
@@ -175,16 +175,19 @@ bspace_init(struct tras_ctx *ctx, void *params)
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	if (p->n != (1 << p->q))
+	if ((p->q == 0) || (p->q > 31) || (p->n != (1 << p->q)))
 		return (EINVAL);
 	if (p->b < BSPACE_MIN_BIT_OFFSET || p->b > BSPACE_MAX_BIT_OFFSET)
 		return (EINVAL);
+	if (p->m == 0)
+		return (EINVAL);
+	if (p->jn < BSPACE_MIN_JN || p->jn > BSPACE_MAX_JN)
+		return (EINVAL);
 
-	/* todo: check m, n nk */
+	/* todo: check m, n */
 
-	size = sizeof(struct bspace_ctx) + p->nk * sizeof(unsigned int) +
-	    + p->m * sizeof(uint32_t) + p->m * sizeof(uint32_t) +
-	    p->nk * sizeof(double);
+	size = sizeof(struct bspace_ctx) + p->m * sizeof(uint32_t) +
+	    p->m * sizeof(uint32_t);
 
 	error = tras_init_context(ctx, &bspace_algo, size, TRAS_F_ZERO);
 	if (error != 0)
@@ -192,18 +195,16 @@ bspace_init(struct tras_ctx *ctx, void *params)
 
 	c = ctx->context;
 
-	c->K = (unsigned int *)(c + 1);
-	c->bdays = c->K + p->nk;
+	c->bdays = (unsigned int *)(c + 1);
 	c->intvs = c->bdays + p->m;
-	c->pprob = (double *)(c->intvs + p->m);
+//	c->pprob = (double *)(c->intvs + p->m);
 
 	/* todo: other initializations when defined */
 
-	c->s = 7 - p->b;
+	c->b = 7 - p->b;
 	c->m = p->m;
 	c->q = p->q;
 	c->n = p->n;
-	c->nk = p->nk;
 	c->alpha = p->alpha;
 
 	return (0);
@@ -213,7 +214,7 @@ int
 bspace_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct bspace_ctx *c;
-	unsigned int b, s, n, i;
+	unsigned int n, i, b;
 	uint32_t *p;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
@@ -225,16 +226,22 @@ bspace_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	p = (uint32_t *)data;
 
 	b = c->nbits / 32;
-	n = min(b, c->m);
-	n = c->m - n;
+	n = miss(b, c->m);
 	n = min(n, nbits / 32);
+	n = n + b;
 
 	for (i = b; i < n; i++, p++)
-		c->bdays[i] = bspace_extract32(p, c->s, c->q);
-
+		c->bdays[i] = bspace_extract32(p, c->b, c->q);
 	c->nbits += nbits;
 
 	return (0);
+}
+
+static double
+bspace_poison_pdf(int k, double lambda)
+{
+
+	return (exp(-lambda) * pow(lambda, k) / tgamma(k + 1));
 }
 
 int
@@ -245,52 +252,17 @@ bspace_final(struct tras_ctx *ctx)
 	unsigned int i, K, diff;
 	int sum;
 
-int j;
-uint32_t *t;
-
 	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 
 	if (c->nbits / 32 < c->m)
 		return (EALREADY);
-K = 0;
-for (i = 0; i < c->m - 1; i++) {
-	for (j = i + 1; j < c->m; j++) {
-		if (c->bdays[i] == c->bdays[j])
-			K++;
-	}
-}
-printf("K1 = %u\n", K);
-
-
-t = malloc(c->m * sizeof(uint32_t));
-memcpy(t, c->bdays, c->m * sizeof(uint32_t));
 
 	/*
 	 * Sort generated birthdays, let them be positioned as in calendar.
 	 */
 	bspace_sort_bdays(c);
-K=0;
-for (i = 0; i < c->m; i++) {
-	for (j = 0; j < c->m; j++) {
-		if (t[i] == c->bdays[j])
-			K++;
-	}
-}
-printf("Kt = %u\n", K);
-
-
-
-for (i = 0; i < c->m; i++)
-	printf("%08x ", c->bdays[i]);
-printf("\n");
-K = 0;
-for (j = 0; j < c->m - 1; j++) {
-	if (c->bdays[j] == c->bdays[j + 1])
-		K++;
-}
-printf("K=%u\n", K);
 
 	/*
 	 * Create intervals.
@@ -318,7 +290,6 @@ printf("K=%u\n", K);
 	}
 
 	printf("%s: final K = %u\n", __func__, K);
-	printf("%s: nbits = %u\n", __func__, c->nbits);
 
 	/*
 	 * todo: implementation.
@@ -331,14 +302,13 @@ printf("K=%u\n", K);
 	 */
 	lambda = (pow((double)c->m, 3.0) / 4.0 / (double)c->n);
 	(void)lambda;
-	printf("%s: lambda = %g\n", __func__, lambda);
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.discard = c->nbits - c->nk * c->m * c->q;
+	ctx->result.discard = 0; /* c->nbits - c->nk * c->m * c->q; ??? */
 	ctx->result.pvalue1 = pvalue;
 
 	tras_fini_context(ctx, 0);
