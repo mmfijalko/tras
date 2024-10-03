@@ -39,6 +39,7 @@
 #include <tras.h>
 #include <utils.h>
 #include <cdefs.h>
+#include <igamc.h>
 #include <frequency.h>
 #include <blkfreq.h>
 
@@ -74,6 +75,7 @@ blkfreq_init(struct tras_ctx *ctx, void *params)
 	    sizeof(struct blkfreq_ctx), TRAS_F_ZERO);
 	if (error != 0)
 		return (error);
+	c = ctx->context;
 
 	c->m = p->m;
 	c->alpha = p->alpha;
@@ -88,61 +90,7 @@ int
 blkfreq_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct blkfreq_ctx *c;
-	unsigned int i, k, n, nb, offs;
-	double pii;
-
-	TRAS_CHECK_UPDATE(ctx, data, nbits);
-
-	c = ctx->context;
-	n = c->nbits;
-
-	c->nbits += nbits;
-
-//	if (c->nblks >= (BLKFREQ_MAX_BLOCKS - 1))
-//		return (0);
-
-	n = n % c->m;
-	if (n > 0) {
-		k = min(nbits, c->m - n);
-		c->sum += frequency_sum1(data, k);
-		n = nbits - k;
-		if (n == 0)
-			return (0);
-		offs = k;
-		c->nblks++;
-	} else {
-		offs = 0;
-		n = nbits;
-	}
-
-	nb = n / c->m;
-	for (i = 0; i < nb; i++) {
-//		if (c->nblks >= (BLKFREQ_MAX_BLOCKS - 1))
-//			return (0);
-		c->sum = frequency_sum1_offs(data, offs, c->m);
-		pii = (double)c->sum / c->m - 0.5;
-		c->stats += pii * pii;
-		offs += c->m;
-		c->nblks++;
-	}
-	n = n - nb * c->m;
-
-	if (n != 0)
-		c->sum = frequency_sum1_offs(data, offs, n);
-	else
-		c->sum = 0;
-
-	return (0);
-}
-
-/*
- * The function to do the test partially with data update.
- */
-int
-blkfreq_update2(struct tras_ctx *ctx, void *data, unsigned int nbits)
-{
-	struct blkfreq_ctx *c;
-	unsigned int i, k, n, offs;
+	unsigned int i, k, n, b, offs, sum;
 	double pii;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
@@ -151,34 +99,34 @@ blkfreq_update2(struct tras_ctx *ctx, void *data, unsigned int nbits)
 
 	n = BLKFREQ_MAX_BLOCKS * c->m;
 	n = max(n, c->nbits);
-	n = min(nbits, n - c->nbits);
+	n = (n > 0) ? min(nbits, n - c->nbits) : nbits;
 
-	if (n > 0) {
-		k = c->nbits % c->m;
-		k = min(n, c->m - k);
-		if (k > 0) {
-			c->sum += frequency_sum1(data, k);
-			n = n - k;
-			if (n == 0) {
-				c->nblks++;
-				c->nbits += k;
-				return (0);
-			}
-		}
-		offs = k;
-		k = n / c->m;
-		for (i = 0; i < k; i++) {
-			c->sum = frequency_sum1_offs(data, offs, c->m);
+	k = c->nbits % c->m;
+	k = c->m - k;
+	b = min(n, c->m - k);
+	if (b > 0) {
+		c->sum += frequency_sum1(data, b);
+		if (b == k) {
 			pii = (double)c->sum / c->m - 0.5;
 			c->stats += pii * pii;
-			offs += c->m;
 			c->nblks++;
+			c->sum = 0;
 		}
-		c->sum = 0;
-		n = n - k * c->m;
-		if (n > 0)
-			c->sum += frequency_sum1_offs(data, offs, n);
+		n = n - b;
 	}
+
+	offs = b;
+	k = n / c->m;
+	for (i = 0; i < k; i++) {
+		sum = frequency_sum1_offs(data, offs, c->m);
+		pii = (double)sum / c->m - 0.5;
+		c->stats += pii * pii;
+		offs += c->m;
+		c->nblks++;
+	}
+	n = n - k * c->m;
+	if (n > 0)
+		c->sum += frequency_sum1_offs(data, offs, n);
 	c->nbits += nbits;
 
 	return (0);
@@ -199,8 +147,7 @@ blkfreq_final(struct tras_ctx *ctx)
 
 	c->stats = 4 * c->m * c->stats;
 
-	/* todo: calculate P-value */
-	pvalue = 0.0;
+	pvalue = igamc((double)c->nblks / 2.0, c->stats / 2.0);
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;

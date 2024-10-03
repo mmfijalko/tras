@@ -34,6 +34,7 @@
 #define	__OQSO_H__
 
 struct oqso_params {
+	unsigned int boff;
 	double	alpha;	/* significance level for H0 */
 };
 

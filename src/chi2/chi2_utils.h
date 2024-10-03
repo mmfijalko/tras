@@ -28,94 +28,15 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * The DNA Test.
+ * The Pearson chi-square test utils.
+ *
  */
 
-#include <stdint.h>
-#include <errno.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
+#ifndef __CHI2_UTILS_H__
+#define	__CHI2_UTILS_H__
 
-#include <tras.h>
-#include <utils.h>
-#include <cdefs.h>
-#include <bits.h>
+int chi_square_test(unsigned int K, unsigned int df, const double *exp,
+    double *freq, double alpha);
 
-#include <sparse.h>
-#include <dna.h>
+#endif
 
-/*
- * The DNA test parameters encoded as sparse parameters.
- */
-static const struct sparse_params sparse_dna_params = {
-	.m = 4,
-	.k = 10,
-	.b = 2,
-	.r = 32,
-	.wmax = SPARSE_MAX_WORDS,
-	.mean = 141910.4026047629,
-	.var = 337,0,
-};
-
-int
-dna_init(struct tras_ctx *ctx, void *params)
-{
-	struct sparse_params sp;
-	int error;
-
-	error = sparse_set_params(&sp, &sparse_dna_params, params);
-	if (error != 0)
-		return (error);
-
-	return (sparse_init(ctx, &sp));
-}
-
-int
-dna_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
-{
-
-	return (sparse_update(ctx, data, nbits));
-}
-
-int
-dna_final(struct tras_ctx *ctx)
-{
-
-	return (sparse_final(ctx));
-}
-
-int
-dna_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
-{
-
-	return (sparse_test(ctx, data, nbits));
-}
-
-int
-dna_restart(struct tras_ctx *ctx, void *params)
-{
-
-	return (sparse_generic_restart(ctx, &sparse_dna_params, params));
-}
-
-int
-dna_free(struct tras_ctx *ctx)
-{
-
-	return (sparse_free(ctx));
-}
-
-const struct tras_algo dna_algo = {
-	.name =		"dna",
-	.desc =		"Four Letters C,G,A,T words test using sparse.",
-	.id =		0,
-	.version =	{ 0, 1, 1 },
-	.init =		dna_init,
-	.update =	dna_update,
-	.test =		dna_test,
-	.final =	dna_final,
-	.restart =	dna_restart,
-	.free =		dna_free,
-};
