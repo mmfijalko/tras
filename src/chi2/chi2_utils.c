@@ -27,34 +27,29 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * The Pearson chi-square test utils.
+ *
  */
 
-#ifndef	__ALGOS_H__
-#define	__ALGOS_H__
+#include <stddef.h>
+#include <errno.h>
 
-#include <frequency.h>
-#include <blkfreq.h>
-#include <runs.h>
-#include <longruns.h>
-#include <sphere3d.h>
-#include <mindist.h>
-#include <plot.h>
-#include <squeeze.h>
-#include <approxe.h>
-#include <sparse.h>
-#include <opso.h>
-#include <otso.h>
-#include <oqso.h>
-#include <dna.h>
-#include <bstream.h>
-#include <cusum.h>
-#include <excursion.h>
-#include <excursionv.h>
-#include <universal.h>
-#include <maurer.h>
-#include <coron.h>
-#include <bspace.h>
-#include <craps.h>
+#include <tras.h>
 #include <chi2.h>
 
-#endif
+
+int
+chi_square_test(unsigned int K, unsigned int df, const double *exp,
+    double *freq, double alpha)
+{
+	struct tras_ctx ctx;
+	struct chi2_params p = { K, 0, exp, alpha };
+
+	p.df = (df == 0) ? K - 1 : df;
+
+	if (chi2_init(&ctx, &p) != 0)
+		return (EINVAL);
+
+	return (chi2_test(&ctx, (void *)freq, 8 * K * sizeof(double)));
+}
