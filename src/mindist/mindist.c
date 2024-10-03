@@ -35,6 +35,8 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <float.h>
+#include <limits.h>
 #include <math.h>
 
 #include <tras.h>
@@ -64,6 +66,82 @@ struct mindist_ctx {
 	double		alpha;	/* significance level for H0 */
 };
 
+/*
+ * Swap two points in the table of points.
+ */
+inline static void
+swap_points(struct point *table, int a, int b)
+{
+	double x, y;
+
+	x = table[a].x;
+	y = table[a].y;
+	table[a].x = table[b].x;
+	table[a].y = table[b].y;
+	table[b].x = x;
+	table[b].y = y;
+}
+
+/*
+ * Sort the collected list of points in ascending order with x-axis.
+ */
+static void
+quicksort_int(struct point *table, int l, int r)
+{
+	unsigned int p, a;
+	unsigned int i, j;
+	double v;
+
+	if (l >= r || l < 0)
+		return;
+
+	/*
+	 * Use simple "in the middle" for pivot point.
+	 */
+	p = l + (r - l) / 2;
+	v = table[p].x;
+
+	/*
+	 * Swap pivot value with last element.
+	 */
+	swap_points(table, p, r);
+
+	for (a = l, i = l; i < r; i++) {
+		if (table[i].x < v) {
+			swap_points(table, i, a);
+			a++;
+		}
+	}
+	swap_points(table, a, r);
+
+	quicksort_int(table, l, a - 1);
+	quicksort_int(table, a + 1, r);
+}
+
+/*
+ * Quick sort a list of points.
+ */
+inline static void
+quicksort(struct point *table, int n)
+{
+
+	quicksort_int(table, 0, n - 1);
+}
+
+/*
+ * Quick sort the collected list of points for minimimum distance algorithm.
+ */
+inline static void
+quicksort_points(struct mindist_ctx *c)
+{
+
+	quicksort(c->points, c->K);
+}
+
+/*
+ * The function returns the Euclidean distance between two points
+ * raised to the power of 2.
+ */
 static double
 mindist_distance_euclidean_pow2(struct point *p1, struct point *p2)
 {
@@ -75,6 +153,9 @@ mindist_distance_euclidean_pow2(struct point *p1, struct point *p2)
 	return (dx * dx + dy * dy);
 }
 
+/*
+ * Convert 32-bit unsigned int value to the double in the range <0.0, 1.0)
+ */
 inline static double
 mindist_uint_to_floatU01(uint32_t u32)
 {
@@ -86,6 +167,9 @@ mindist_uint_to_floatU01(uint32_t u32)
 	return ((double)u32 / pow(2.0, 32));
 }
 
+/*
+ * Normalize the single point component to <0, 1000> range.
+ */
 inline static double
 mindist_point_component(uint32_t u32)
 {
@@ -94,7 +178,7 @@ mindist_point_component(uint32_t u32)
 }
 
 static double
-mindist_distance_min_pow2(struct point *points, unsigned int n)
+mindist_min_distance_pow2(struct point *points, unsigned int n)
 {
 	struct point *p1, *p2;
 	unsigned int i, j;
@@ -104,6 +188,29 @@ mindist_distance_min_pow2(struct point *points, unsigned int n)
 
 	for (i = 0, p1 = points; i < n - 1; i++, p1++) {
 		for (j = i + 1, p2 = p1 + 1; j < n; j++, p2++) {
+			d2 = mindist_distance_euclidean_pow2(p1, p2);
+			if (d2 < d2min)
+				d2min = d2;
+		}
+	}
+	return (d2min);
+}
+
+static double
+mindist_min_distance_pow2_sorted(struct point *points, unsigned int n)
+{
+	struct point *p1, *p2;
+	unsigned int i, j;
+	double d2min, d2;
+
+	quicksort(points, n);
+
+	d2min = DBL_MAX;
+
+	for (i = 0, p1 = points; i < n - 1; i++, p1++) {
+		for (j = i + 1, p2 = p1 + 1; j < n; j++, p2++) {
+			if (abs(p1->x - p2->x) >= sqrt(d2min))
+				break;
 			d2 = mindist_distance_euclidean_pow2(p1, p2);
 			if (d2 < d2min)
 				d2min = d2;
@@ -185,6 +292,32 @@ mindist_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (0);
 }
 
+#ifdef MINDIST_DEBUG
+static void
+mindist_show_points(struct mindist_ctx *c)
+{
+	unsigned int i;
+
+	for (i = 0; i < c->K; i++) {
+		printf("point %d : <%.16f, %.16f>\n", i,
+		    c->points[i].x, c->points[i].y);
+	}
+}
+
+static int
+mindst_quicksort_verify(struct mindist_ctx *c)
+{
+	unsigned int i;
+
+
+	for (i = 0; i < c->K - 1; i++) {
+		if (c->points[i].x > c->points[i + 1].x)
+			return (EINVAL);
+	}
+	return (0);
+}
+#endif
+
 int
 mindist_final(struct tras_ctx *ctx)
 {
@@ -199,8 +332,7 @@ mindist_final(struct tras_ctx *ctx)
 	if (c->npoint < c->K)
 		return (EALREADY);
 
-	d2min = mindist_distance_min_pow2(c->points, c->K);
-
+	d2min = mindist_min_distance_pow2_sorted(c->points, c->K);
 	mean = 0.995;
 	pvalue = 1.0 - exp(-d2min / mean);
 
