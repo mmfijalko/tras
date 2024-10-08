@@ -36,7 +36,7 @@
  * - Q - number of columns in each matrix.
  *
  * For parameters other than 32 x 32 the approximation need to
- * be recalculated as NIST algorithm descrition says.
+ * be recalculated as NIST algorithm description says.
  *
  * For particular M, Q the minimum 38 matrices need to be crated, so
  * minimum number of bits is n >= 38MQ. If n is not multiple of MQ
@@ -116,11 +116,12 @@ bmrank_check_params(struct tras_ctx *ctx, struct bmrank_params *p)
 		return (EINVAL);
 	if (p->uniform && (p->s0 + p->q > BMRANK_MAX_Q))
 		return (EINVAL);
+	if (p->s0 > (BMRANK_MAX_Q - p->q))
+		return (EINVAL);
 	if (p->nr > min(p->m, p->q))
 		return (EINVAL);
-	if (p->N == 0)
+	if (p->N < BMRANK_MIN_N)
 		return (EINVAL);
-
 	return (0);
 }
 
