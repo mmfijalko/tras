@@ -28,7 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * The Minimum Distance Test.
+ * The Rank of 31x31 Binary Matrices Test
  */
 
 #include <stdint.h>
@@ -46,41 +46,40 @@
 #include <brank31.h>
 
 /*
- * The minimum distance test context.
+ * The binary matrix 31x31 rank test parameters encoded as generic matrix test
+ * parameters.
  */
-struct brank31_ctx {
-	struct tras_ctx ctx;	/* tras context for bmrank */
-	double		alpha;	/* significance level for H0 */
+static const struct bmrank_params brank31_params = {
+	.uniform = 1,
+	.m = 31, .q = 31,
+	.nr = 3,	/* XXX: ??? Verify this */
+	.s0 = 0,
+	.N = 40000,
 };
 
+/*
+ * The initialize method for binary matrix 31x31 test. The specific test
+ * is generic tras context for the generic binary matrix test.
+ */
 int
 brank31_init(struct tras_ctx *ctx, void *params)
 {
 	struct brank31_params *p = params;
-	struct bmrank_params bmrankp;
-	struct tras_ctx *c;
-	size_t size;
+	struct bmrank_params bmp;
 	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	size = sizeof(struct tras_ctx);
-
-	error = tras_init_context(ctx, &brank31_algo, size, TRAS_F_ZERO);
+	error = tras_init_context(ctx, &brank31_algo, sizeof(struct tras_ctx),
+	    TRAS_F_ZERO);
 	if (error != 0)
 		return (error);
 
-	c = ctx->context;
+	memcpy(&bmp, &brank31_params, sizeof(struct bmrank_params));
+	bmp.alpha = p->alpha;
 
-	bmrankp.uniform = 1;
-	bmrankp.m = bmrankp.q = 31;
-	bmrankp.nr = 3;
-	bmrankp.s0 = 0;
-	bmrankp.N = 40000;
-	bmrankp.alpha = p->alpha;
-
-	error = bmrank_init(c, &bmrankp);
+	error = bmrank_init(ctx->context, &bmp);
 	if (error != 0) {
 		tras_fini_context(ctx, 0);
 		return (error);
@@ -92,13 +91,10 @@ brank31_init(struct tras_ctx *ctx, void *params)
 int
 brank31_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	struct tras_ctx *c;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	c = ctx->context;
-
-	return (bmrank_update(c, data, nbits));
+	return (bmrank_update(ctx->context, data, nbits));
 }
 
 int
