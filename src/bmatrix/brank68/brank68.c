@@ -28,7 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * The Minimum Distance Test.
+ * The Rank of 6x6 Binary Matrices Test
  */
 
 #include <stdint.h>
@@ -64,7 +64,7 @@ brank68_init(struct tras_ctx *ctx, void *params)
 	bmrankp.uniform = 1;
 	bmrankp.m = 6;
 	bmrankp.q = 8;
-	bmrankp.nr = 2;
+	bmrankp.nr = 2;	/* XXX: ???, verify this */
 	bmrankp.s0 = p->byte * 8;
 	bmrankp.N = 100000;
 	bmrankp.alpha = p->alpha;
