@@ -59,6 +59,7 @@
 #include <bmatrix.h>
 #include <bmrank.h>
 #include <brank31.h>
+#include <brank32.h>
 #include <brank68.h>
 
 #endif
