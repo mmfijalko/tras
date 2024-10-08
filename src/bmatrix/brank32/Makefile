@@ -5,9 +5,11 @@ CFLAGS+=-I${CURDIR}
 FAMDIR=${CURDIR}/../
 CFLAGS+=-I${FAMDIR}/../include/
 CFLAGS+=-I${FAMDIR}/../utils/
+CFLAGS+=-I${FAMDIR}/bmrank/
 
 VPATH+=${FAMDIR}/../utils/
 VPATH+=${FAMDIR}/../tras/
+VPATH+=${FAMDIR}/bmrank/
 
 LDFLAGS=-lm
 
