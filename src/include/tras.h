@@ -78,10 +78,13 @@ typedef int (tras_test_free_t)(struct tras_ctx *);
 /*
  * Helper macros for tras context and tests methods.
  */
+#define	TRAS_IS_INITED(ctx)			\
+	((ctx)->state > TRAS_STATE_NONE)
+
 #define	TRAS_CHECK_INIT(ctx) do {		\
 	if ((ctx) == NULL)			\
 		return (EINVAL);		\
-	if ((ctx)->state > TRAS_STATE_NONE)	\
+	if (TRAS_IS_INITED(ctx))		\
 		return (EINPROGRESS);		\
 } while (0)
 

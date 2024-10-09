@@ -28,88 +28,102 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * The Overlapping-Triples-Sparse-Occupancy test (OTSO).
  */
 
 #include <stdint.h>
 #include <errno.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 #include <math.h>
-#include <time.h>
 
-#include <stdio.h>
+#include <tras.h>
+#include <utils.h>
+#include <bits.h>
+#include <sparse.h>
+#include <otso.h>
+
+	#include <stdio.h>
 
 /*
- * Calculate binary matrix rank.
- *
- * Parameters :
- * bmatrix - the binary matrix stored as list of 32 bits words;
- *           each element of the table represents one row; one
- *           word in the table is in big endian representation
- *           and only n bits are valid ([31..(31-n+1)]), the
- *           rest is unused.
- *
- * m - the number of rows of the bmatrix <1, 32>.
- * n - the number of columns of the bmatrix <1, 32>.
- *
- * Returns: the rank of the m x binary matrix.
+ * The OTSO test parameters encoded as sparse parameters.
  */
-unsigned int
-binary_matrix_rank(uint32_t *bmatrix, unsigned int m, unsigned int n)
+static const struct sparse_params sparse_otso_params = {
+	.m = 64,
+	.k = 3,
+	.b = 6,
+	.r = 32,
+	.wmax = SPARSE_MAX_WORDS,
+//	.mean = 87.9395,
+	.mean = 87.85,
+	.var = 9.37,
+};
+
+static inline int
+otso_set_params(struct sparse_params *sp, void *params)
 {
-	unsigned int h, k, j, i;
-	uint32_t kmask, t;
 
-	kmask = 0x80000000;
-
-	for (k = 0, h = 0; k < n && h < m; k++) {
-		/*
-		 * Find the pivot, row index.
-		 */
-		for (i = h; i < m; i++) {
-			if (bmatrix[i] & kmask)
-				break;
-		}
-		if (i < m) {
-			/*
-			 * swap rows with index h and j = pivot.
-			 */
-			if (i != h) {
-				t = bmatrix[h];
-				bmatrix[h] = bmatrix[i];
-				bmatrix[i] = t;
-			}
-
-			/*
-			 * Do for all rows below pivot row.
-			 */
-			for (i = h + 1; i < m; i++) {
-				if (bmatrix[i] & kmask)
-					bmatrix[i] ^= bmatrix[h];
-			}
-			h++;
-		}
-		kmask = kmask >> 1;
-	}
-
-	return (h);
+	return (sparse_set_params(sp, &sparse_otso_params, params));
 }
 
-static void
-binary_matrix32_show(uint32_t *bmatrix, unsigned int m, unsigned int n)
+int
+otso_init(struct tras_ctx *ctx, void *params)
 {
-	unsigned int i, j;
-	uint32_t row, mask;
+	struct sparse_params sp;
+	int error;
 
-	for (i = 0; i < m; i++) {
-		row = bmatrix[i];
-		mask = 0x80000000;
-		for (j = 0; j < n; j++) {
-			printf("%c ", (row & mask) ? '1' : '0');
-			mask = mask >> 1;
-		}
-		printf("\n");
-	}
+	error = otso_set_params(&sp, params);
+	if (error != 0)
+		return (error);
+
+	return (sparse_init(ctx, &sp));
 }
 
+int
+otso_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+
+	return (sparse_update(ctx, data, nbits));
+}
+
+int
+otso_final(struct tras_ctx *ctx)
+{
+
+	return (sparse_final(ctx));
+}
+
+int
+otso_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+
+	return (sparse_test(ctx, data, nbits));
+}
+
+int
+otso_restart(struct tras_ctx *ctx, void *params)
+{
+
+	return (sparse_generic_restart(ctx, &sparse_otso_params, params));
+}
+
+int
+otso_free(struct tras_ctx *ctx)
+{
+
+	return (sparse_free(ctx));
+}
+
+const struct tras_algo otso_algo = {
+	.name =		"otso",
+	.desc =		"Overlapping-Triples-Sparse-Occupancy Test",
+	.id =		0,
+	.version =	{ 0, 1, 1 },
+	.init =		otso_init,
+	.update =	otso_update,
+	.test =		otso_test,
+	.final =	otso_final,
+	.restart =	otso_restart,
+	.free =		otso_free,
+};

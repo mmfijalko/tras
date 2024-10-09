@@ -4,12 +4,9 @@ CFLAGS+=-I${CURDIR}
 CFLAGS+=-I${CURDIR}/../include/
 CFLAGS+=-I${CURDIR}/../utils/
 
-VPATH+=${CURDIR}/../utils/
-VPATH+=${CURDIR}/../tras/
-
 LDFLAGS=-lm
 
-all: brank68.o hamming8.o utils.o tras.o
+all: igamc.o
 
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@

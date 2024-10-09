@@ -30,9 +30,16 @@
  *
  */
 
-#ifndef	__TRAS_BMRANK_H__
-#define	__TRAS_BMRANK_H__
+#ifndef __OTSO_H__
+#define	__OTSO_H__
 
-unsigned int binary_matrix_rank(uint32_t *, unsigned int, unsigned int);
+struct otso_params {
+	unsigned int boff;
+	double	alpha;	/* significance level for H0 */
+};
+
+TRAS_DECLARE_ALGO(otso)
 
 #endif
+
+
