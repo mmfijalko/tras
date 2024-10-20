@@ -105,14 +105,15 @@ excursion_init(struct tras_ctx *ctx, void *params)
 	return (0);
 }
 
-inline static void
+static void
 excursion_cycle_done(struct excursion_ctx *c)
 {
-	unsigned int j, k, *sfreq = c->sfreq;
+	unsigned int j, k, *sfreq;
 
 	/*
 	 * Copy counters to state/cycles table.
 	 */
+	sfreq = c->sfreq;
 	for (j = 0; j < 8; j++, sfreq += 6) {
 		for (k = 0; k < 5; k++) {
 			if (c->cfreq[j] == k)
@@ -134,8 +135,8 @@ excursion_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct excursion_ctx *c;
 	unsigned int i, n, m;
-	int j;
 	uint8_t *p, mask;
+	int j;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
@@ -146,27 +147,18 @@ excursion_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	while (n > 0) {
 		m = min(n, 8);
 		for (i = 0, mask = 0x80; i < m; i++, mask >>= 1) {
-			/*
-			 * Up or down.
-			 */
+			 /* Up or down. */
 			c->state += (*p & mask) ? 1 : -1;
 
-			/*
-			 * Check the end of the cycle.
-			 */
+			/* Run end of cycle routine or update state counter */
 			if (c->state == 0) {
 				excursion_cycle_done(c);
-				continue;
-			}
-
-			/*
-			 * Update state counter.
-			 */
-			if (c->state >= -4 && c->state <= 4) {
+			} else if (c->state >= -4 && c->state <= 4) {
 				if (c->state < 0)
 					j = c->state + 4;
 				else if (c->state > 0)
 					j = c->state + 3;
+				/* XXX: j could be undefined here */
 				c->cfreq[j]++;
 			}
 		}
@@ -241,15 +233,9 @@ excursion_final(struct tras_ctx *ctx)
 		chi2p.exp = exp;
 		chi2p.alpha = c->alpha;
 		error = chi2_init(&chi2c, (void *)&chi2p);
-		if (error != 0) {
+		if (error != 0)
 			return (error);
-		}
-		error = chi2_update(&chi2c, obs, 6 * sizeof(double) * 8);
-		if (error != 0) {
-			chi2_free(&chi2c);
-			return (error);
-		}
-		error = chi2_final(&chi2c);
+		error = chi2_test(&chi2c, obs, 6 * sizeof(double) * 8);
 		if (error != 0) {
 			chi2_free(&chi2c);
 			return (error);
