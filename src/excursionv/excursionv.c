@@ -71,7 +71,7 @@ excursionv_init(struct tras_ctx *ctx, void *params)
 
 	size = sizeof(struct excursionv_ctx) + /* 18 */ 19 * (sizeof(int) +
 	    sizeof(double));
-	error = tras_init(ctx, &excursionv_algo, size, TRAS_F_ZERO);
+	error = tras_init_context(ctx, &excursionv_algo, size, TRAS_F_ZERO);
 	if (error != 0)
 		return (error);
 	c = ctx->context;
