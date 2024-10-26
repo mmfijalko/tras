@@ -30,14 +30,15 @@
  *
  */
 
-#ifndef __BRANK32_H__
-#define	__BRANK32_H__
+#ifndef __BRANK68_H__
+#define	__BRANK68_H__
 
-struct brank32_params {
-	double	alpha;	/* significance level for H0 */
+struct brank68_params {
+	unsigned int	byte;	/* the selected byte from generator word */
+	double		alpha;	/* significance level for H0 */
 };
 
-TRAS_DECLARE_ALGO(brank32);
+TRAS_DECLARE_ALGO(brank68);
 
 #endif
 

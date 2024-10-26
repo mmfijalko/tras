@@ -43,6 +43,8 @@
 #include <approxe.h>
 #include <sparse.h>
 #include <opso.h>
+#include <otso.h>
+#include <oqso.h>
 #include <dna.h>
 #include <bstream.h>
 #include <cusum.h>
@@ -54,5 +56,10 @@
 #include <bspace.h>
 #include <craps.h>
 #include <chi2.h>
+#include <bmatrix.h>
+#include <bmrank.h>
+#include <brank31.h>
+#include <brank32.h>
+#include <brank68.h>
 
 #endif

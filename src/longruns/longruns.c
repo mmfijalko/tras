@@ -38,7 +38,7 @@
 
 #include <tras.h>
 #include <cdefs.h>
-
+#include <igamc.h>
 #include <hamming8.h>
 #include <longruns.h>
 
@@ -55,7 +55,6 @@ struct longruns_classes {
  */
 struct longruns_ctx {
 	unsigned int *	v;		/* the frequency table */
-	const struct longruns_classes *classes;
 	unsigned int	nbmax;		/* max number of bits */
 	unsigned int	nblks;		/* full blocks updated */
 	unsigned int	M;		/* the length of each block */
@@ -156,11 +155,24 @@ longruns_category_inc(struct longruns_ctx *c, unsigned int lrun)
 	c->v[index]++;
 }
 
+inline static const struct longruns_classes *
+longruns_find_classes(unsigned int M)
+{
+	const struct longruns_classes *cl = &longruns_classes[0];
+
+	while (cl->pi != NULL) {
+		if (cl->M == M)
+			return (cl);
+		cl++;
+	}
+	return (NULL);
+}
+
 int
 longruns_init(struct tras_ctx *ctx, void *params)
 {
 	struct longruns_params *p = params;
-	const struct longruns_classes *classes;
+	const struct longruns_classes *cl;
 	struct longruns_ctx *c;
 	size_t size;
 	int i, error;
@@ -171,17 +183,10 @@ longruns_init(struct tras_ctx *ctx, void *params)
 if (p->version != 1 && p->version != 2)
 	return (EINVAL);
 
-	classes = &longruns_classes[0];
-	while (classes->pi != NULL) {
-		if (classes->M == p->M)
-			break;
-		classes++;
-	}
-	if (classes->pi == NULL)
+	if ((cl = longruns_find_classes(p->M)) == NULL)
 		return (EINVAL);
 
-	size = sizeof(struct longruns_ctx) +
-	    (classes->K + 1) * sizeof(unsigned int);
+	size = sizeof(struct longruns_ctx) + (cl->K + 1) * sizeof(unsigned int);
 
 	error = tras_init_context(ctx, &longruns_algo, size, TRAS_F_ZERO);
 	if (error != 0)
@@ -193,7 +198,6 @@ if (p->version != 1 && p->version != 2)
 	c->M = p->M;
 	c->N = p->N;
 	c->nbmax = p->M * p->N;
-	c->classes = classes;
 	c->alpha = p->alpha;
 
 c->version = p->version;
@@ -234,22 +238,25 @@ longruns_update1(struct tras_ctx *ctx, void *data, unsigned int nbits)
 			}
 			if (*p & mask) {
 				run++;
-			} else if (run != 0) {
+			} else {
 				if (run > c->maxrun)
 					c->maxrun = run;
 				run = 0;
 			}
 		}
-		n = n - k;
-		o = o + k;
-		b = b + k;
+		if (run > c->maxrun)
+			c->maxrun = run;
 		if (o == c->M) {
 			longruns_category_inc(c, c->maxrun);
 			c->maxrun = 0;
 			run = 0;
 			o = 0;
 			c->nblks++;
+		} else {
+			o = o + k;
 		}
+		b = b + k;
+		n = n - k;
 	}
 	c->run = run;
 
@@ -298,16 +305,14 @@ longruns_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (ENXIO);
 }
 
-#include <stdio.h>
-
 int
 longruns_final(struct tras_ctx *ctx)
 {
 	struct longruns_ctx *c;
+	const struct longruns_classes *cl;
 	double pvalue, stats;
-	const double *pi;
 	double npi;
-	unsigned int i, K;
+	unsigned int i;
 
 	TRAS_CHECK_FINAL(ctx);
 
@@ -316,20 +321,15 @@ longruns_final(struct tras_ctx *ctx)
 	if (c->nbits < c->nbmax)
 		return (EALREADY);
 
-	K = c->classes->K;
-	pi = c->classes->pi;
-	for (i = 0, stats = 0.0; i <= K; i++) {
-		npi = c->N * pi[i];
+	if ((cl = longruns_find_classes(c->M)) == NULL)
+		return (EINVAL);
+
+	for (i = 0, stats = 0.0; i <= cl->K; i++) {
+		npi = c->N * cl->pi[i];
 		stats += (c->v[i] - npi) * (c->v[i] - npi) / npi;
 	}
 
-	/*
-	 * TODO: calculating igamc not implemented yet, just stats.
-	 *
-	 * p-value = igamc(K / 2, chi2(obs) / 2);
-	 */
-
-	pvalue = 0.0;
+	pvalue = igamc((double)cl->K / 2, stats / 2);
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;

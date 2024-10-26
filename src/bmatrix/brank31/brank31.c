@@ -28,54 +28,62 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * The Minimum Distance Test.
+ * The Rank of 31x31 Binary Matrices Test
  */
 
 #include <stdint.h>
 #include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 
 #include <tras.h>
 #include <hamming8.h>
 #include <utils.h>
 #include <bits.h>
+#include <bmrank.h>
 #include <brank31.h>
 
 /*
- * The minimum distance test context.
+ * The binary matrix 31x31 rank test parameters encoded as generic matrix test
+ * parameters.
  */
-struct brank31_ctx {
-	unsigned int	nbits;	/* number of bits processed */
-	double		alpha;	/* significance level for H0 */
+static const struct bmrank_params brank31_params = {
+	.uniform = 1,
+	.m = 31, .q = 31,
+	.nr = 3,	/* XXX: ??? Verify this */
+	.s0 = 0,
+	.N = 40000,
 };
 
+/*
+ * The initialize method for binary matrix 31x31 test. The specific test
+ * is generic tras context for the generic binary matrix test.
+ */
 int
 brank31_init(struct tras_ctx *ctx, void *params)
 {
-	struct brank31_ctx *c;
 	struct brank31_params *p = params;
+	struct bmrank_params bmp;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	c = malloc(sizeof(struct brank31_ctx));
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
+	error = tras_init_context(ctx, &brank31_algo, sizeof(struct tras_ctx),
+	    TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+
+	memcpy(&bmp, &brank31_params, sizeof(struct bmrank_params));
+	bmp.alpha = p->alpha;
+
+	error = bmrank_init(ctx->context, &bmp);
+	if (error != 0) {
+		tras_fini_context(ctx, 0);
+		return (error);
 	}
-
-	/*
-	 * todo: other initializations when defined.
-	 */
-
-	c->nbits = 0;
-	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &brank31_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -83,47 +91,29 @@ brank31_init(struct tras_ctx *ctx, void *params)
 int
 brank31_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	struct brank31_ctx *c;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	c = ctx->context;
-
-	(void)c;
-
-	/*
-	 * TODO: implementation.
-	 */
-	return (ENOSYS);
+	return (bmrank_update(ctx->context, data, nbits));
 }
 
 int
 brank31_final(struct tras_ctx *ctx)
 {
-	struct brank31_ctx *c;
-	double pvalue, sobs;
-	int sum;
+	struct tras_ctx *c;
+	int error;
 
 	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 
-	(void)c;
+	error = bmrank_final(c);
+	if (error != 0)
+		return (error);
 
-	/* todo: implementation */
+	memcpy(&ctx->result, &c->result, sizeof(ctx->result));
 
-	pvalue = 0.0;
-
-	if (pvalue < c->alpha)
-		ctx->result.status = TRAS_TEST_FAILED;
-	else
-		ctx->result.status = TRAS_TEST_PASSED;
-
-	ctx->result.discard = c->nbits & 0x07;
-	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
-
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }

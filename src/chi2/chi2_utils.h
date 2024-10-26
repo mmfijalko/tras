@@ -28,17 +28,15 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
+ * The Pearson chi-square test utils.
+ *
  */
 
-#ifndef __BRANK68_H__
-#define	__BRANK68_H__
+#ifndef __CHI2_UTILS_H__
+#define	__CHI2_UTILS_H__
 
-struct brank68_params {
-	double	alpha;	/* significance level for H0 */
-};
-
-TRAS_DECLARE_ALGO(brank68);
+int chi_square_test(unsigned int K, unsigned int df, const double *exp,
+    double *freq, double alpha);
 
 #endif
-
 
