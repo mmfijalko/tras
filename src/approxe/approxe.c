@@ -222,11 +222,13 @@ approxe_final(struct tras_ctx *ctx)
 	if (freq == NULL)
 		return (ENOMEM);
 
+#if 0
 printf("total n = %d\n", n);
 for (i = 0; i < k; i++)
 	printf("freq0[%d] = %d\n", i, c->freq0[i]);
 for (i = 0; i < 2 * k; i++)
 	printf("freq1[%d] = %d\n", i, c->freq1[i]);
+#endif
 
 
 	/* Calculate relative frequencies for m */ 
@@ -250,19 +252,7 @@ for (i = 0; i < 2 * k; i++)
 
 	stats = (double)n * (log(2.0) - (phim0 - phim1));
 
-	/*
-	 * todo: finalization is not finished since we don't have
-	 * igammac implementation yet.
-	 * pvalue = igamc(2 ^ (m - 1), chi2 / 2);
-	 */
 	pvalue = igamc(1 << (c->m - 1), stats / 2.0);
-
-#if 0
-	pvalue = lentz2_gamma((double)(1 << (c->m - 1)), stats / 2.0, 10e-32, &error);
-printf("getting lentz gamma (%g, %g) = %.16g\n",
-    (double)(1 << (c->m - 1)), stats / 2.0, pvalue);
-	pvalue = pvalue / tgamma((double)(1 << (c->m - 1)));
-#endif
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
