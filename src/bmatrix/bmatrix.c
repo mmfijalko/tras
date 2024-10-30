@@ -30,161 +30,86 @@
  *
  */
 
-/*
- * Test with two parameters:
- * - M - number of rows in each matrix.
- * - Q - number of columns in each matrix.
- *
- * For parameters other than 32 x 32 the approximation need to
- * be recalculated as NIST algorithm descrition says.
- *
- * For particular M, Q the minimum 38 matrices need to be crated, so
- * minimum number of bits is n >= 38MQ. If n is not multiple of MQ
- * the n % (MQ) bits will be discarded.
- *
- * Number of blocks (matrices) N = lower(n / MQ)
- *
- * Rank of the binary matrices needs to be calculated.
- *
- * TODO: need fast algorithm to determine the binary matrix rand.
- *
- * Question: should number of rows and columns be equal (M == N) ?
- */
-
 #include <stdint.h>
 #include <errno.h>
-#include <stddef.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <stddef.h>
+#include <math.h>
+#include <time.h>
 
-#include <tras.h>
-#include <bmatrix.h>
+#include <stdio.h>
 
-struct bmatrix_ctx {
-	unsigned int	nbits;	/* number of bits processed */
-	unsigned int	nmatx;	/* number of matrices processed */
-	unsigned int	fm0;	/* number of full rank matrices */
-	unsigned int	fm1;	/* number of full rank-1 matrices */
-	unsigned int	m;	/* number of rows in matrix */
-	unsigned int	q;	/* number of columns in matrix */
-	unsigned int	mq;	/* number of bits per matrix */
-	double		alpha;	/* significance level for H0 */
-};
-
-int
-bmatrix_init(struct tras_ctx *ctx, void *params)
+/*
+ * Calculate binary matrix rank.
+ *
+ * Parameters :
+ * bmatrix - the binary matrix stored as list of 32 bits words;
+ *           each element of the table represents one row; one
+ *           word in the table is in big endian representation
+ *           and only n bits are valid ([31..(31-n+1)]), the
+ *           rest is unused.
+ *
+ * m - the number of rows of the bmatrix <1, 32>.
+ * n - the number of columns of the bmatrix <1, 32>.
+ *
+ * Returns: the rank of the m x binary matrix.
+ */
+unsigned int
+binary_matrix_rank(uint32_t *bmatrix, unsigned int m, unsigned int n)
 {
-	struct bmatrix_params *p = params;
-	struct bmatrix_ctx *c;
-	int size, error;
+	unsigned int h, k, j, i;
+	uint32_t kmask, t;
 
-	TRAS_CHECK_INIT(ctx);
-	TRAS_CHECK_PARA(p, p->alpha);
+	kmask = 0x80000000;
 
-	if (p->m < BMATRIX_MIN_M || p->q < BMATRIX_MIN_Q)
-		return (EINVAL);
-	if (p->m > BMATRIX_MAX_M || p->q > BMATRIX_MAX_Q)
-		return (EINVAL);
+	for (k = 0, h = 0; k < n && h < m; k++) {
+		/*
+		 * Find the pivot, row index.
+		 */
+		for (i = h; i < m; i++) {
+			if (bmatrix[i] & kmask)
+				break;
+		}
+		if (i < m) {
+			/*
+			 * swap rows with index h and j = pivot.
+			 */
+			if (i != h) {
+				t = bmatrix[h];
+				bmatrix[h] = bmatrix[i];
+				bmatrix[i] = t;
+			}
 
-	size = sizeof(struct bmatrix_ctx);
+			/*
+			 * Do for all rows below pivot row.
+			 */
+			for (i = h + 1; i < m; i++) {
+				if (bmatrix[i] & kmask)
+					bmatrix[i] ^= bmatrix[h];
+			}
+			h++;
+		}
+		kmask = kmask >> 1;
+	}
 
-	error = tras_init_context(ctx, &bmatrix_algo, size, TRAS_F_ZERO);
-	if (error != 0)
-		return (0);
-
-	c->alpha = p->alpha;
-	c->m = p->m;
-	c->q = p->q;
-	c->mq = c->m * c->q;
-
-	return (0);
+	return (h);
 }
 
-int
-bmatrix_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+static void
+binary_matrix32_show(uint32_t *bmatrix, unsigned int m, unsigned int n)
 {
+	unsigned int i, j;
+	uint32_t row, mask;
 
-	TRAS_CHECK_UPDATE(ctx, data, nbits);
-
-	/*
-	 * todo: implementation.
-	 */
-	return (ENOSYS);
+	for (i = 0; i < m; i++) {
+		row = bmatrix[i];
+		mask = 0x80000000;
+		for (j = 0; j < n; j++) {
+			printf("%c ", (row & mask) ? '1' : '0');
+			mask = mask >> 1;
+		}
+		printf("\n");
+	}
 }
 
-int
-bmatrix_final(struct tras_ctx *ctx)
-{
-	struct bmatrix_ctx *c;
-	double diffn, expt0, expt1, exptn;
-	double fmn, chi2, pvalue;
-	unsigned int n;
-
-	TRAS_CHECK_FINAL(ctx);
-
-	c = ctx->context;
-
-	if (c->nmatx < BMATRIX_MIN_MATRICES)
-		return (EALREADY);
-
-	/* Calculate chi-square distribution statistics */
-	n = c->nmatx;
-
-	expt0 = 0.2888 * c->nmatx;
-	expt1 = 0.5776 * c->nmatx;
-	exptn = 0.1336 * c->nmatx;
-	diffn = (double)(n - c->fm0 + c->fm1);
-
-	chi2 = (c->fm0 - expt0) * (c->fm0 - expt0) / expt0 +
-	    (c->fm1 - expt1) * (c->fm1 - expt1) / expt1 +
-	    (diffn - exptn) * (diffn - exptn) / exptn;
-
-	/* todo: here calculation of statistics */
-	pvalue = 0.0;
-
-	if (pvalue < c->alpha)
-		ctx->result.status = TRAS_TEST_FAILED;
-	else
-		ctx->result.status = TRAS_TEST_PASSED;
-
-	ctx->result.discard = c->nbits % c->mq;
-	ctx->result.stats1 = chi2;
-	ctx->result.pvalue1 = pvalue;
-
-	tras_fini_context(ctx, 0);
-
-	return (0);
-}
-
-int
-bmatrix_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
-{
-
-	return (tras_do_test(ctx, data, nbits));
-}
-
-int
-bmatrix_restart(struct tras_ctx *ctx, void *params)
-{
-
-	return (tras_do_restart(ctx, params));
-}
-
-int
-bmatrix_free(struct tras_ctx *ctx)
-{
-
-	return (tras_do_free(ctx));
-}
-
-const struct tras_algo bmatrix_algo = {
-	.name =		"BMatrix",
-	.desc =		"Binary Matrix Rank Test",
-	.id =		0,
-	.version = 	{ 0, 1, 1 },
-	.init =		bmatrix_init,
-	.update =	bmatrix_update,
-	.test =		bmatrix_test,
-	.final =	bmatrix_final,
-	.restart =	bmatrix_restart,
-	.free =		bmatrix_free,
-};

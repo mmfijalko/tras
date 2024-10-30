@@ -81,43 +81,39 @@ static int state_map[8] = {-4, -3, -2, -1, 1, 2, 3, 4};
 int
 excursion_init(struct tras_ctx *ctx, void *params)
 {
-	struct excursion_ctx *c;
 	struct excursion_params *p = params;
+	struct excursion_ctx *c;
+	size_t size;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	c = malloc(sizeof(struct excursion_ctx) + 8 * sizeof(unsigned int) +
-	    8 * 6 * sizeof(unsigned int));
-	if (c == NULL)
-		return (ENOMEM);
+	size = sizeof(struct excursion_ctx) + 8 * sizeof(unsigned int) +
+	    8 * 6 * sizeof(unsigned int);
 
-	c->state = 0;
-	c->cycle = 0;
+	error = tras_init_context(ctx, &excursion_algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+	c = ctx->context;
+
 	c->cfreq = (unsigned int *)(c + 1);
 	c->sfreq = (unsigned int *)(c->cfreq + 8);
 
-	memset(c->cfreq, 0, 8 * sizeof(unsigned int));
-	memset(c->sfreq, 0, 8 * 6 * sizeof(unsigned int));
-
-	c->nbits = 0;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &excursion_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
 
-inline static void
+static void
 excursion_cycle_done(struct excursion_ctx *c)
 {
-	unsigned int j, k, *sfreq = c->sfreq;
+	unsigned int j, k, *sfreq;
 
 	/*
 	 * Copy counters to state/cycles table.
 	 */
+	sfreq = c->sfreq;
 	for (j = 0; j < 8; j++, sfreq += 6) {
 		for (k = 0; k < 5; k++) {
 			if (c->cfreq[j] == k)
@@ -139,8 +135,8 @@ excursion_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct excursion_ctx *c;
 	unsigned int i, n, m;
-	int j;
 	uint8_t *p, mask;
+	int j;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
@@ -151,27 +147,18 @@ excursion_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	while (n > 0) {
 		m = min(n, 8);
 		for (i = 0, mask = 0x80; i < m; i++, mask >>= 1) {
-			/*
-			 * Up or down.
-			 */
+			 /* Up or down. */
 			c->state += (*p & mask) ? 1 : -1;
 
-			/*
-			 * Check the end of the cycle.
-			 */
+			/* Run end of cycle routine or update state counter */
 			if (c->state == 0) {
 				excursion_cycle_done(c);
-				continue;
-			}
-
-			/*
-			 * Update state counter.
-			 */
-			if (c->state >= -4 && c->state <= 4) {
+			} else if (c->state >= -4 && c->state <= 4) {
 				if (c->state < 0)
 					j = c->state + 4;
 				else if (c->state > 0)
 					j = c->state + 3;
+				/* XXX: j could be undefined here */
 				c->cfreq[j]++;
 			}
 		}
@@ -246,15 +233,9 @@ excursion_final(struct tras_ctx *ctx)
 		chi2p.exp = exp;
 		chi2p.alpha = c->alpha;
 		error = chi2_init(&chi2c, (void *)&chi2p);
-		if (error != 0) {
+		if (error != 0)
 			return (error);
-		}
-		error = chi2_update(&chi2c, obs, 6 * sizeof(double) * 8);
-		if (error != 0) {
-			chi2_free(&chi2c);
-			return (error);
-		}
-		error = chi2_final(&chi2c);
+		error = chi2_test(&chi2c, obs, 6 * sizeof(double) * 8);
 		if (error != 0) {
 			chi2_free(&chi2c);
 			return (error);
@@ -271,12 +252,10 @@ excursion_final(struct tras_ctx *ctx)
 		ctx->result.status = TRAS_TEST_PASSED;
 
 	ctx->result.discard = -1;
-	ctx->result.stats1 = 0.0;
-	ctx->result.stats2 = 0.0;
 	ctx->result.pvalue1 = pvmin;
 	ctx->result.pvalue2 = pvmax;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }

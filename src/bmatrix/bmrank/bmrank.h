@@ -30,15 +30,42 @@
  *
  */
 
-#ifndef __BRANK32_H__
-#define	__BRANK32_H__
+#ifndef __BMRANK_H__
+#define	__BMRANK_H__
 
-struct brank32_params {
-	double	alpha;	/* significance level for H0 */
+/*
+ * The parameters for the Binary Matrix Rank Test.
+ */
+struct bmrank_params {
+	int		uniform;/* take always full 32-bits words */
+	unsigned int	m;	/* the number of rows for matrices */
+	unsigned int	q;	/* the number of columns for matrices */
+	unsigned int	nr;	/* the number of ranks for chi-2 */
+	unsigned int	s0;	/* the start bit in the 32-bits word */
+	unsigned int	N;	/* the mininum number of matrices */
+	double		alpha;	/* the significance level for H0 */
 };
 
-TRAS_DECLARE_ALGO(brank32);
+/*
+ * The minimum and maximum number of rows for each matrix
+ */
+#define	BMRANK_MIN_M	1
+
+#define	BMRANK_MAX_M	32
+
+/*
+ * The minimum and maximum number of columns for each matrix.
+ */
+#define	BMRANK_MIN_Q	1
+
+#define	BMRANK_MAX_Q	32
+
+/*
+ * The minimum number of matrices to process to finalize the test.
+ */
+#define	BMRANK_MIN_N	38
+
+TRAS_DECLARE_ALGO(bmrank);
 
 #endif
-
 
