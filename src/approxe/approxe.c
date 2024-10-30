@@ -103,7 +103,7 @@ approxe_get_sequence(int offs, int nbits, uint8_t *data)
 	d = data + offs / 8;
 
 	while (nbits > 0) {
-		b = *d++ & (0xff >> (offs & 0x07));
+		b = *d & (0xff >> (offs & 0x07));
 		n = 8 - (offs & 0x7);
 		if (nbits < n) {
 			b = b >> (n - nbits);
@@ -112,6 +112,7 @@ approxe_get_sequence(int offs, int nbits, uint8_t *data)
 		seq = (seq << n) | (uint32_t)b;
 		offs += n;
 		nbits -= n;
+		d++;
 	}
 	return (seq);
 }
@@ -193,7 +194,7 @@ int
 approxe_final(struct tras_ctx *ctx)
 {
 	struct approxe_ctx *c;
-	double pvalue, phim0, phim1, stats, *freq;
+	double pvalue, phim0, phim1, stats, fri;
 	unsigned int i, n, k;
 	uint8_t d[4];
 	int error;
@@ -218,10 +219,6 @@ approxe_final(struct tras_ctx *ctx)
 	k = 1 << c->m;
 	n = c->nbits;
 
-	freq = malloc(2 * sizeof(double) * k);
-	if (freq == NULL)
-		return (ENOMEM);
-
 #if 0
 printf("total n = %d\n", n);
 for (i = 0; i < k; i++)
@@ -230,27 +227,25 @@ for (i = 0; i < 2 * k; i++)
 	printf("freq1[%d] = %d\n", i, c->freq1[i]);
 #endif
 
-
-	/* Calculate relative frequencies for m */ 
-	for (i = 0; i < k; i++) {
-		freq[i] = ((double)c->freq0[i]) / (double)n;
-	}
-	/* Calculate phi value for m */
+	/* Calculate relative frequencies and phi values for m */ 
 	for (i = 0, phim0 = 0.0; i < k; i++) {
-		if (c->freq0[i] != 0)
-			phim0 += freq[i] * log(freq[i]);
+		if (c->freq0[i] != 0) {
+			fri = ((double)c->freq0[i]) / (double)n;
+			phim0 += fri * log(fri);
+		}
 	}
-	/* Calculate relative frequencies for m + 1 */
+	/* Calculate relative frequencies and phi value for m + 1 */
 	for (i = 0, k = k * 2, phim1 = 0.0; i < k; i++) {
-		freq[i] = ((double)c->freq1[i]) / (double)n;
-	}
-	/* Calculate phi value for m + 1 */
-	for (i = 0, phim1 = 0.0; i < k; i++) {
-		if (c->freq1[i] != 0)
-			phim1 += freq[i] * log(freq[i]);
+		if (c->freq1[i] != 0) {
+			fri = ((double)c->freq1[i]) / (double)n;
+			phim1 += fri * log(fri);
+		}
 	}
 
-	stats = (double)n * (log(2.0) - (phim0 - phim1));
+	/*
+	 * TODO: still don't know the correct statistic.
+	 */
+	stats = 2.0 * (double)n * (log(2.0) - (phim0 - phim1));
 
 	pvalue = igamc(1 << (c->m - 1), stats / 2.0);
 

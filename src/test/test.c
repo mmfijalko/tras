@@ -59,7 +59,7 @@ struct frequency_params frequency_params = {
 };
 
 struct approxe_params approxe_params = {
-	.m = 4,
+	.m = 5,
 	.alpha = 0.05,
 };
 
