@@ -46,6 +46,8 @@
 #include <const.h>
 #include <cusum.h>
 
+#include <stdio.h>
+
 /*
  * The table represent a absolute of minimum value for
  * random walk for each 8-bit sequence, where 0 represents
@@ -90,19 +92,21 @@ static uint8_t cusum_maxtab[256] = {
 };
 
 struct cusum_ctx {
-	unsigned int	nbits;		/* number of bits processed */
-	int		mins;		/* minimal sum so far */
-	int		maxs;		/* maximum sum so far */
+	int		mins;		/* minimal sum, depends on mode */
+	int		maxs;		/* maximum sum, depends on mode */
 	int		sum;		/* sum for all subsequences */
+	int		sumr;		/* helper sum for backward mode */
 	int		mode;		/* forward or backward direction */
+	unsigned int	nbits;		/* number of bits processed */
 	double		alpha;		/* significance level */
 };
 
 int
 cusum_init(struct tras_ctx *ctx, void *params)
 {
-	struct cusum_ctx *c;
 	struct cusum_params *p = params;
+	struct cusum_ctx *c;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
@@ -110,20 +114,14 @@ cusum_init(struct tras_ctx *ctx, void *params)
 	if (p->mode != CUSUM_MODE_FORWARD && p->mode != CUSUM_MODE_BACKWARD)
 		return (EINVAL);
 
-	c = malloc(sizeof(struct cusum_ctx));
-	if (c == NULL)
-		return (ENOMEM);
+	error = tras_init_context(ctx, &cusum_algo, sizeof(struct cusum_ctx),
+	    TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+	c = ctx->context;
 
-	c->mins = 0;
-	c->maxs = 0;
-	c->sum = 0;
 	c->mode = p->mode;
-	c->nbits = 0;
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &cusum_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -131,7 +129,7 @@ cusum_init(struct tras_ctx *ctx, void *params)
 static int
 cusum_update_forward(struct cusum_ctx *c, void *data, unsigned int nbits)
 {
-	uint8_t *p = (uint8_t *)data;
+	uint8_t *p = (uint8_t *)data, m;
 	unsigned int i, n;
 	int mins, maxs;
 
@@ -148,8 +146,8 @@ cusum_update_forward(struct cusum_ctx *c, void *data, unsigned int nbits)
 
 	if (nbits & 0x07) {
 		n = nbits & 0x07;
-		for (i = 0; i < n; i++) {
-			if (*p & (1 << (7 - i))) {
+		for (i = 0, m = 0x80; i < n; i++, m >>= 1) {
+			if (*p & m) {
 				if (c->sum == c->maxs)
 					c->maxs++;
 				c->sum++;
@@ -165,42 +163,94 @@ cusum_update_forward(struct cusum_ctx *c, void *data, unsigned int nbits)
 	return (0);
 }
 
+#if 0
+#define	BIT(p, b)	((p)[b / 8] & (0x80 >> ((b) & 0x07)))
+
+static int
+cusum_update_backward_contig(struct cusum_ctx *ctx, void *data, unsigned int nbits)
+{
+	unsigned int i;
+	uint8_t *p;
+	int sum, delta;
+	int smin, smax, z0, z1;
+
+	p = (uint8_t *)data;
+
+	delta = 0;
+	sum = 0;
+
+	delta = BIT(p, 0) ? 1 : -1;
+	smin = smax = 0;
+
+	for (i = 1; i < nbits; i++) {
+		if (BIT(p, i)) {
+			sum++;
+			if (sum > smax)
+				smax = sum;
+			delta++;
+		} else {
+			sum--;
+			if (sum < smin)
+				smin = sum;
+			delta--;
+		}
+	}
+
+	z0 = smin;
+	z1 = smax;
+	smin = delta - z1;
+	smax = delta - z0;
+
+	printf("smin = %d, smax = %d\n", smin, smax);
+
+	smin = abs(smin);
+	smax = abs(smax);
+
+	smax = max(smin, smax);
+
+	printf("stats = %d\n", smax);
+
+	return (0);
+}
+#endif
+
 static int
 cusum_update_backward(struct cusum_ctx *c, void *data, unsigned int nbits)
 {
-	unsigned int i, n, m;
-	uint8_t *p, mask;
+	unsigned int i, k, n;
+	uint8_t *p, m;
 
-	if (c->nbits != 0)
-		return (ENXIO);
-	if (nbits < CUSUM_MIN_BITS)
-		return (EBADMSG);
+	if (nbits == 0)
+		return (0);
 
-	p = (uint8_t *)data + (nbits >> 3);
-	n = nbits;
+	p = (uint8_t *)data;
+	k = 0;
 
+	/* Update without last bit */
+	n = nbits - 1;
 	while (n > 0) {
-		if (n & 0x07) {
-			m = n & 0x07;
-			mask = 0x80 >> (m - 1);
-		} else {
-			m = 8;
-			mask = 0x01;
-		}
-		for (i = 0; i < m; i++, mask <<= 1) {
-			if (*p & mask) {
+		k = min(n, 8);
+		for (i = 0, m = 0x80; i < k; i++, m >>= 1) {
+			if (*p & m) {
+				if (c->sum == c->maxs)
+					c->maxs++;
 				c->sum++;
-				if (c->sum > c->maxs)
-					c->maxs = c->sum;
 			} else {
+				if (c->sum == c->mins)
+					c->mins--;
 				c->sum--;
-				if (c->sum < c->mins)
-					c->mins = c->sum;
 			}
 		}
-		n = n - m;
-		p--;
+		k = i;
+		p = p + ((k < 8) ? 0 : 1);
+		n = n - k;
 	}
+
+	/* Update for last bit */
+	m = 0x80 >> k;
+	c->sumr = c->sum;
+	c->sum = c->sumr + (((*p) & m) ? 1 : -1);
+
 	c->nbits += nbits;
 
 	return (0);
@@ -219,7 +269,7 @@ cusum_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	case CUSUM_MODE_FORWARD:
 		return (cusum_update_forward(ctx->context, data, nbits));
 	case CUSUM_MODE_BACKWARD:
-		return (cusum_update_backward(ctx->context, data, nbits));
+		return (cusum_update_backward2(ctx->context, data, nbits));
 	}
 	return (ENXIO);
 }
@@ -244,7 +294,11 @@ cusum_final(struct tras_ctx *ctx)
 	if (c->nbits < CUSUM_MIN_BITS)
 		return (EALREADY);
 
-	z = (abs(c->mins) > c->maxs) ? abs(c->mins) : c->maxs;
+	if (c->mode == CUSUM_MODE_BACKWARD) {
+		c->mins = c->sum - c->mins;
+		c->maxs = c->sum + c->maxs;
+	}
+	z = max(abs(c->mins), abs(c->maxs));
 
 	n = (int)c->nbits;
 	sqrtn = sqrt(c->nbits);
@@ -269,13 +323,11 @@ cusum_final(struct tras_ctx *ctx)
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.discard = 0;
 	ctx->result.stats1 = (double)z;
 	ctx->result.stats2 = sum;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }

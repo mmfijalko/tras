@@ -169,13 +169,64 @@ struct longruns_params longruns_params = {
 .version = 1,
 };
 
+struct bmrank_params bmrank_pq31_params = {
+	.uniform = 1,
+	.m = 31,
+	.q = 31,
+	.nr = 3,
+	.s0 = 0,
+	.N = 40000,
+	.alpha = 0.01,
+};
+
+struct bmrank_params bmrank_pq31_params_nonuni = {
+	.uniform = 0,
+	.m = 31,
+	.q = 31,
+	.nr = 2,
+	.s0 = 0,
+	.N = 38,
+	.alpha = 0.01,
+};
+
+struct bmrank_params bmrank_pq32_params = {
+	.uniform = 0,
+	.m = 32,
+	.q = 32,
+	.nr = 3,
+	.s0 = 0,
+	.N = 40000,
+	.alpha = 0.01,
+};
+
+struct bmrank_params bmrank_pq68_params = {
+	.uniform = 0,
+	.m = 6,
+	.q = 8.,
+	.nr = 2,
+	.s0 = 0,
+	.N = 100000,
+	.alpha = 0.01,
+};
+
+struct brank31_params brank31_params = {
+	.alpha = 0.01,
+};
+
+struct brank32_params brank32_params = {
+	.alpha = 0.01,
+};
+
+struct brank68_params brank68_params = {
+	.byte = 0,
+	.alpha = 0.01,
+};
+
 static const struct test_algo algo_list[] = {
 	{ "frequency", &frequency_algo, &frequency_params, 0 },
 	{ "sphere3d", &sphere3d_algo, &sphere3d_params, 0 },
 	{ "approxe", &approxe_algo, &approxe_params },
 	{ "blkfreq", &blkfreq_algo, &blkfreq_params },
-	{ "brank31", NULL, NULL },
-	{ "brank68", NULL, NULL },
 	{ "bstream", &bstream_algo, &bstream_params },
 	{ "c1tssbytes", NULL, NULL },
 	{ "cusum", &cusum_algo, &cusum_params_fw },
@@ -193,8 +244,17 @@ static const struct test_algo algo_list[] = {
 	{ "sphere3d", NULL, NULL },
 	{ "squeeze", &squeeze_algo, &squeeze_params },
 	{ "bkampmassey", NULL, NULL },
-	{ "bmatrix", NULL, NULL },
-	{ "brank32", NULL, NULL },
+
+	{ "bmrank-pq31", &bmrank_algo, &bmrank_pq31_params },
+	{ "bmrank-pq32", &bmrank_algo, &bmrank_pq32_params },
+	{ "bmrank-pq68", &bmrank_algo, &bmrank_pq68_params },
+
+	{ "bmrank-pq31-non-uniform", &bmrank_algo, &bmrank_pq31_params_nonuni },
+
+	{ "brank32", &brank32_algo, &brank32_params },
+	{ "brank31", &brank31_algo, &brank31_params },
+	{ "brank68", &brank68_algo, &brank68_params },
+
 	{ "bspace", &bspace_algo, &bspace_params },
 	{ "c1tsbits", NULL, NULL },
 	{ "craps", &craps_algo, &craps_params },

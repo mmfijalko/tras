@@ -30,9 +30,25 @@
  *
  */
 
-#ifndef	__TRAS_BMRANK_H__
-#define	__TRAS_BMRANK_H__
+#ifndef __BRANK32_H__
+#define	__BRANK32_H__
 
-unsigned int binary_matrix_rank(uint32_t *, unsigned int, unsigned int);
+struct brank32_params {
+	double	alpha;	/* significance level for H0 */
+};
+
+/*
+ * The number of random matrices for the test.
+ */
+#define	BRANK32_N_MATRICES		40000
+
+/*
+ * The number of chi-square intervals for the test.
+ */
+#define	BRANK32_N_CHI2_INTERVALS	3
+
+TRAS_DECLARE_ALGO(brank32);
 
 #endif
+
+
