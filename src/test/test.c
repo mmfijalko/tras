@@ -492,7 +492,6 @@ test_cmd_test(void)
 		printf("test failed to init %s algorithm\n", algo->name);
 		return (error);
 	}
-
 	size = test_desc->blocksize;
 	size = size ? size : 2048;
 	data = malloc(size);
@@ -570,7 +569,7 @@ test_select_test(const char *name)
 	return ((test_desc == NULL) ? EINVAL : 0);
 }
 
-#define	TEST_OPTSTR	"hlt:s:S"
+#define	TEST_OPTSTR	"hlt:s:S:"
 
 int main(int argc, char *argv[])
 {
