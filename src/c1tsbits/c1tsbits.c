@@ -38,10 +38,13 @@
 #include <math.h>
 
 #include <tras.h>
-#include <hamming8.h>
 #include <utils.h>
+#include <cdefs.h>
+#include <igamc.h>
 #include <bits.h>
 #include <c1tsbits.h>
+
+	#include <stdio.h>
 
 /*
  * Bytes to letters map.
@@ -239,8 +242,10 @@ c1tsbits_update8(struct tras_ctx *ctx, void *data, unsigned int nbits)
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	if (nbits & 0x07)
+	if (nbits & 0x07) {
+		printf("nbits = %u\n", nbits);
 		return (EINVAL);
+	}
 
 	c = ctx->context;
 	p = (uint8_t *)data;
@@ -278,14 +283,16 @@ int
 c1tsbits_final(struct tras_ctx *ctx)
 {
 	struct c1tsbits_ctx *c;
-	double pvalue, s, d, v1v2, *exp;
+	double pvalue, s, d, v2, v1, *exp;
 	int i, j, w, l;
 
 	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
-	if (c->nbits < C1TSBITS_MIN_NBITS)
+	if (c->nbits < C1TSBITS_MIN_NBITS) {
+		printf("nbits = %u, needed = %u\n", c->nbits, C1TSBITS_MIN_NBITS);
 		return (EALREADY);
+	}
 
 	exp = malloc(3125 * sizeof(double));
 	if (exp == NULL)
@@ -301,11 +308,12 @@ c1tsbits_final(struct tras_ctx *ctx)
 			w = w / 5;
 		}
 	}
-	for (i = 0, s = 0.0; i < 3125; i++) {
+	for (i = 0, v2 = 0.0; i < 3125; i++) {
 		d = (double)c->w5freq[i]  - exp[i];
-		s += d * d / exp[i];
+		v2 += d * d / exp[i];
 	}
-	v1v2 = igamc(3124.0 / 2, s / 2.0);
+	// pvalue = igamc(3124.0 / 2, v2 / 2.0);
+	// printf("v2 = %f\n", v2);
 
 	/* Get expected value for four letter words */
 	for (i = 0; i < 625; i++) {
@@ -317,13 +325,15 @@ c1tsbits_final(struct tras_ctx *ctx)
 			w = w / 5;
 		}
 	}
-	for (i = 0, s = 0.0; i < 625; i++) {
+	for (i = 0, v1 = 0.0; i < 625; i++) {
 		d = (double)c->w4freq[i] - exp[i];
-		s += d * d / exp[i];
+		v1 += d * d / exp[i];
 	}
-	v1v2 = v1v2 - igamc(624 / 2, s / 2.0);
+	// pvalue = igamc(624 / 2, v1 / 2.0);
+	// printf("v1 = %f\n", v1);
+	// printf("v2 - v1 = %f\n", v2 - v1);
 
-	s = fabs(v1v2 - C1TSBITS_MEAN) / C1TSBITS_STDDEV / sqrt((double)2.0);
+	s = fabs(v2 - v1 - C1TSBITS_MEAN) / C1TSBITS_STDDEV / sqrt((double)2.0);
 	pvalue = erfc(fabs(s));
 
 	if (pvalue < c->alpha)

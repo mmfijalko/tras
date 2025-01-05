@@ -53,7 +53,7 @@ struct c1tsbits_params {
 /*
  * The stream is treated as sequence of bytes and letters.
  */
-#define	C1TSBITS_BYTES		(8 * C1TSBITS_LETTERS)
+#define	C1TSBITS_BYTES		C1TSBITS_LETTERS
 
 /*
  * The number of bits is strictly defined.
