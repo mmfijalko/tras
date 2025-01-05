@@ -54,5 +54,6 @@
 #include <bspace.h>
 #include <craps.h>
 #include <chi2.h>
+#include <c1tsbits.h>
 
 #endif

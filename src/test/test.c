@@ -200,6 +200,10 @@ struct longruns_params longruns_params = {
 .version = 1,
 };
 
+struct c1tsbits_params c1tsbits_params = {
+	.alpha = 0.01,
+};
+
 static const struct test_algo algo_list[] = {
 	{ "frequency", &frequency_algo, &frequency_params, 0 },
 	{ "sphere3d", &sphere3d_algo, &sphere3d_params, 0 },
@@ -227,7 +231,7 @@ static const struct test_algo algo_list[] = {
 	{ "bmatrix", NULL, NULL },
 	{ "brank32", NULL, NULL },
 	{ "bspace", &bspace_algo, &bspace_params },
-	{ "c1tsbits", NULL, NULL },
+	{ "c1tsbits", &c1tsbits_algo, &c1tsbits_params, },
 	{ "craps", &craps_algo, &craps_params },
 	{ "sparse_opso", &sparse_algo, &sparse_params_opso },
 	{ "sparse_otso", &sparse_algo, &sparse_params_otso },
