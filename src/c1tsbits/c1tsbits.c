@@ -278,7 +278,8 @@ int
 c1tsbits_final(struct tras_ctx *ctx)
 {
 	struct c1tsbits_ctx *c;
-	double pvalue, s, v1v2;
+	double pvalue, s, d, v1v2, *exp;
+	int i, j, w, l;
 
 	TRAS_CHECK_FINAL(ctx);
 
@@ -286,8 +287,41 @@ c1tsbits_final(struct tras_ctx *ctx)
 	if (c->nbits < C1TSBITS_MIN_NBITS)
 		return (EALREADY);
 
-	/* todo: implementation, temporary no statistics */
-	v1v2 = 0.0;
+	exp = malloc(3125 * sizeof(double));
+	if (exp == NULL)
+		return (ENOMEM);
+
+	/* Get expected value for five letter words */
+	for (i = 0; i < 3125; i++) {
+		exp[i] = C1TSBITS_WORDS;
+		w = i;
+		for (j = 0; j < 5; j++) {
+			l = w % 5;
+			exp[i] = exp[i] * lprob[l];
+			w = w / 5;
+		}
+	}
+	for (i = 0, s = 0.0; i < 3125; i++) {
+		d = (double)c->w5freq[i]  - exp[i];
+		s += d * d / exp[i];
+	}
+	v1v2 = igamc(3124.0 / 2, s / 2.0);
+
+	/* Get expected value for four letter words */
+	for (i = 0; i < 625; i++) {
+		exp[i] = C1TSBITS_WORDS;
+		w = i;
+		for (j = 0; j < 4; j++) {
+			l = w % 5;
+			exp[i] = exp[i] * lprob[l];
+			w = w / 5;
+		}
+	}
+	for (i = 0, s = 0.0; i < 625; i++) {
+		d = (double)c->w4freq[i] - exp[i];
+		s += d * d / exp[i];
+	}
+	v1v2 = v1v2 - igamc(624 / 2, s / 2.0);
 
 	s = fabs(v1v2 - C1TSBITS_MEAN) / C1TSBITS_STDDEV / sqrt((double)2.0);
 	pvalue = erfc(fabs(s));
