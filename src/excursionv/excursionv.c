@@ -28,7 +28,11 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * todo: name
+ * The Random Excursion Variant Test.
+ */
+
+/* 
+ * Todo: consider to return all 18 p-values and statistics.
  */
 
 #include <stdint.h>
@@ -43,13 +47,13 @@
 #include <excursionv.h>
 
 /*
- * Private context for random excursion variant test.
+ * Private context for the Random Excursion Variant Test.
  */
 struct excursionv_ctx {
 	unsigned int	nbits;		/* number of bits updated */
 	double		alpha;		/* significance level */
 	double *	pvalue;		/* P-values table */
-	unsigned int *	counts;		/* states counters */	
+	unsigned int *	counts;		/* states counters */
 	int		state;		/* current state */
 	unsigned int	cycle;		/* current cycle */
 };
@@ -59,27 +63,22 @@ excursionv_init(struct tras_ctx *ctx, void *params)
 {
 	struct excursionv_params *p = params;
 	struct excursionv_ctx *c;
+	size_t size;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	c = malloc(sizeof(struct excursionv_ctx) + 18 *
-	    (sizeof(int) + sizeof(double)));
-	if (c == NULL)
-		return (ENOMEM);
-
-	memset(c + 1, 0, 18 * sizeof(int));
+	size = sizeof(struct excursionv_ctx) + /* 18 */ 19 * (sizeof(int) +
+	    sizeof(double));
+	error = tras_init_context(ctx, &excursionv_algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+	c = ctx->context;
 
 	c->counts = (unsigned int *)(c + 1);
-	c->pvalue = (double *)(c->counts + 18);
-	c->state = 0;
-	c->cycle = 0;
-	c->nbits = 0;
+	c->pvalue = (double *)(c->counts + /* 18 */ 19);
 	c->alpha = p->alpha;
-
-	ctx->context = c;
-	ctx->algo = &excursionv_algo;
-	ctx->state = TRAS_STATE_INIT;
 
 	return (0);
 }
@@ -89,14 +88,16 @@ excursionv_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct excursionv_ctx *c;
 	uint8_t *p, mask;
-	unsigned int i, x, n, m;
+	unsigned int i, n, m;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
 	c = ctx->context;
-
 	p = (uint8_t *)data;
-	n = nbits;
+
+	n = min(c->nbits, EXCURSION_V_MIN_BITS);
+	n = EXCURSION_V_MIN_BITS - n;
+	n = min(n, nbits);
 
 	while (n > 0) {
 		mask = 0x80;
@@ -104,13 +105,10 @@ excursionv_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 		for (i = 0; i < m; i++, mask >>= 1) {
 			c->state += (*p & mask) ? 1 : -1;
 			if (c->state >= -9 && c->state <= 9) {
-				if (c->state != 0) {
-					x = (c->state < 0) ? c->state + 9 :
-							     c->state + 8;
-					c->counts[x]++;
-				} else {
+				if (c->state != 0)
+					c->counts[c->state + 9]++;
+				else
 					c->cycle++;
-				}
 			}
 		}
 		n = n - m;
@@ -122,15 +120,12 @@ excursionv_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (0);
 }
 
-/* 
- * Todo: consider to return all 18 p-values and statistics.
- */
 int
 excursionv_final(struct tras_ctx *ctx)
 {
 	struct excursionv_ctx *c;
 	double stats, pvmin, pvmax;
-	int i, x, fail;
+	int i, j, x, fail;
 
 	TRAS_CHECK_FINAL(ctx);
 
@@ -146,9 +141,9 @@ excursionv_final(struct tras_ctx *ctx)
 	pvmax = 0.0;
 
 	for (i = 0, fail = 0; i < 18; i++) {
-		stats = abs(c->counts[i] - c->cycle);
+		j = (i < 9) ? i : i + 1;
+		stats = abs(c->counts[j] - c->cycle);
 		x = (i < 9) ? (i - 9) : (i - 8);
-		stats = stats / sqrt(2.0 * c->cycle * (4.0 * abs(x) - 2.0));
 		c->pvalue[i] = erfc(stats);
 		if (c->pvalue[i] < c->alpha)
 			fail++;
@@ -160,13 +155,13 @@ excursionv_final(struct tras_ctx *ctx)
 
 	ctx->result.status = fail ? TRAS_TEST_FAILED : TRAS_TEST_PASSED;
 
-	ctx->result.discard = 0;
+	ctx->result.discard = c->nbits - EXCURSION_V_MIN_BITS;
 	ctx->result.stats1 = (double)fail;
 	ctx->result.stats2 = (double)c->cycle;
 	ctx->result.pvalue1 = pvmin;
 	ctx->result.pvalue2 = pvmax;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }

@@ -43,158 +43,69 @@
 #include <utils.h>
 #include <bits.h>
 
-#include <hamming8.h>
+#include <sparse.h>
 #include <opso.h>
 
 /*
- * The OPSO test context.
+ * The OPOS test parameters encoded as sparse parameters.
  */
-struct opso_ctx {
-	unsigned int	nbits;	/* number of bits processed */
-	double		alpha;	/* significance level for H0 */
-	uint32_t *	wmap;	/* bitmap for opso words */
-	uint32_t	word;	/* last letter collected */
-	unsigned int	letters;/* number of letters processed */
-	unsigned int	sparse;	/* number of missing words */
+struct sparse_params sparse_opso_params = {
+	.m = 1024,
+	.k = 2,
+	.b = 10,
+	.r = 32,
+	.wmax = SPARSE_MAX_WORDS,
+	.mean = 141909.3299550069,
+	.var = 290.4622634038,
+	.alpha = 0.01,
 };
 
 int
 opso_init(struct tras_ctx *ctx, void *params)
 {
-	struct opso_params *p = params;
-	struct opso_ctx *c;
-	int size;
+	struct sparse_params sp;
+	int error;
 
-	TRAS_CHECK_INIT(ctx);
-	TRAS_CHECK_PARA(p, p->alpha);
+	error = sparse_set_params(&sp, &sparse_opso_params, params);
+	if (error != 0)
+		return (error);
 
-	c = malloc(sizeof(struct opso_ctx) + OPSO_WORDS / 8);
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
-	}
-	c->wmap = (uint32_t *)(c + 1);
-	memset(c->wmap, 0, OPSO_WORDS / 8);
-
-	c->nbits = 0;
-	c->alpha = p->alpha;
-	c->letters = 0;
-	c->word = 0;
-	c->sparse = OPSO_WORDS;
-
-	ctx->context = c;
-	ctx->algo = &opso_algo;
-	ctx->state = TRAS_STATE_INIT;
-
-	return (0);
+	return (sparse_init(ctx, &sp));
 }
 
 int
 opso_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	struct opso_ctx *c;
-	unsigned int n, i, k;
-	uint32_t *strokes, word;
 
-	TRAS_CHECK_UPDATE(ctx, data, nbits);
-
-	if (nbits & 0x1f)
-		return (EINVAL);
-	if (nbits == 0)
-		return (0);
-
-	c = ctx->context;
-
-	if (c->nbits >= OPSO_MAX_BITS) {
-		c->nbits += nbits;
-		return (0);
-	}
-
-	strokes = (uint32_t *)data;
-	n = nbits / 32;
-
-	if (c->letters < 2) {
-		k = min(n, 2 - c->letters);
-		for (i = 0; i < k; i++) {
-			c->word = (c->word << 10) & ~OPSO_LETTER_MASK;
-			c->word |= ((strokes[i] >> 22) & OPSO_LETTER_MASK) &
-			   OPSO_WORD_MASK;
-		}
-		c->nbits += k * 32;
-		c->letters += k;
-		if (c->letters < 2)
-			return (0);
-		strokes += k;
-		n = n - k;
-	}
-
-	k = min(OPSO_LETTERS - c->letters, n);
-	word = c->word;
-
-	for (i = 0; i < k; i++) {
-		word = ((word << 10) | ((strokes[i] >> 22) & 0x000003ff)) &
-		    0x000fffff;
-		if ((c->wmap[word >> 5] & (1 << (word & 0x1f))) == 0) {
-			c->wmap[word >> 5] |= (1 << (word & 0x1f));
-			c->sparse--;
-		}
-	}
-	c->word = word;
-	c->letters += n;
-	c->nbits += n * 32;
-
-	return (0);
+	return (sparse_update(ctx, data, nbits));
 }
 
 int
 opso_final(struct tras_ctx *ctx)
 {
-	struct opso_ctx *c;
-	double pvalue, s;
 
-	TRAS_CHECK_FINAL(ctx);
-
-	c = ctx->context;
-	if (c->nbits < OPSO_MIN_BITS)
-		return (EALREADY);
-
-	s = (double)c->sparse - 141909.3299550069;
-	s = fabs(s) / 290.4622634038 / sqrt((double)2.0);
-	pvalue = erfc(fabs(s));
-
-	if (pvalue < c->alpha)
-		ctx->result.status = TRAS_TEST_FAILED;
-	else
-		ctx->result.status = TRAS_TEST_PASSED;
-
-	ctx->result.discard = c->nbits - OPSO_BITS;
-	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
-
-	ctx->state = TRAS_STATE_FINAL;
-
-	return (0);
+	return (sparse_final(ctx));
 }
 
 int
 opso_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
-	return (tras_do_test(ctx, data, nbits));
+	return (sparse_test(ctx, data, nbits));
 }
 
 int
 opso_restart(struct tras_ctx *ctx, void *params)
 {
 
-	return (tras_do_restart(ctx, params));
+	return (sparse_generic_restart(ctx, &sparse_opso_params, params));
 }
 
 int
 opso_free(struct tras_ctx *ctx)
 {
 
-	return (tras_do_free(ctx));
+	return (sparse_free(ctx));
 }
 
 const struct tras_algo opso_algo = {

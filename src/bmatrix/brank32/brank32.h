@@ -27,40 +27,28 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
  */
 
-#ifndef	__ALGOS_H__
-#define	__ALGOS_H__
+#ifndef __BRANK32_H__
+#define	__BRANK32_H__
 
-#include <frequency.h>
-#include <blkfreq.h>
-#include <runs.h>
-#include <longruns.h>
-#include <sphere3d.h>
-#include <mindist.h>
-#include <plot.h>
-#include <squeeze.h>
-#include <approxe.h>
-#include <sparse.h>
-#include <opso.h>
-#include <otso.h>
-#include <oqso.h>
-#include <dna.h>
-#include <bstream.h>
-#include <cusum.h>
-#include <excursion.h>
-#include <excursionv.h>
-#include <universal.h>
-#include <maurer.h>
-#include <coron.h>
-#include <bspace.h>
-#include <craps.h>
-#include <chi2.h>
-#include <c1tsbits.h>
-#include <bmatrix.h>
-#include <bmrank.h>
-#include <brank31.h>
-#include <brank32.h>
-#include <brank68.h>
+struct brank32_params {
+	double	alpha;	/* significance level for H0 */
+};
+
+/*
+ * The number of random matrices for the test.
+ */
+#define	BRANK32_N_MATRICES		40000
+
+/*
+ * The number of chi-square intervals for the test.
+ */
+#define	BRANK32_N_CHI2_INTERVALS	3
+
+TRAS_DECLARE_ALGO(brank32);
 
 #endif
+
+

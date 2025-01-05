@@ -27,40 +27,45 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
  */
 
-#ifndef	__ALGOS_H__
-#define	__ALGOS_H__
+#ifndef __BMRANK_H__
+#define	__BMRANK_H__
 
-#include <frequency.h>
-#include <blkfreq.h>
-#include <runs.h>
-#include <longruns.h>
-#include <sphere3d.h>
-#include <mindist.h>
-#include <plot.h>
-#include <squeeze.h>
-#include <approxe.h>
-#include <sparse.h>
-#include <opso.h>
-#include <otso.h>
-#include <oqso.h>
-#include <dna.h>
-#include <bstream.h>
-#include <cusum.h>
-#include <excursion.h>
-#include <excursionv.h>
-#include <universal.h>
-#include <maurer.h>
-#include <coron.h>
-#include <bspace.h>
-#include <craps.h>
-#include <chi2.h>
-#include <c1tsbits.h>
-#include <bmatrix.h>
-#include <bmrank.h>
-#include <brank31.h>
-#include <brank32.h>
-#include <brank68.h>
+/*
+ * The parameters for the Binary Matrix Rank Test.
+ */
+struct bmrank_params {
+	int		uniform;/* take always full 32-bits words */
+	unsigned int	m;	/* the number of rows for matrices */
+	unsigned int	q;	/* the number of columns for matrices */
+	unsigned int	nr;	/* the number of ranks for chi-2 */
+	unsigned int	s0;	/* the start bit in the 32-bits word */
+	unsigned int	N;	/* the mininum number of matrices */
+	double		alpha;	/* the significance level for H0 */
+};
+
+/*
+ * The minimum and maximum number of rows for each matrix
+ */
+#define	BMRANK_MIN_M	1
+
+#define	BMRANK_MAX_M	32
+
+/*
+ * The minimum and maximum number of columns for each matrix.
+ */
+#define	BMRANK_MIN_Q	1
+
+#define	BMRANK_MAX_Q	32
+
+/*
+ * The minimum number of matrices to process to finalize the test.
+ */
+#define	BMRANK_MIN_N	38
+
+TRAS_DECLARE_ALGO(bmrank);
 
 #endif
+

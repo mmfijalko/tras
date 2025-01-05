@@ -30,41 +30,9 @@
  *
  */
 
-#ifndef __BMATRIX_H__
-#define	__BMATRIX_H__
+#ifndef	__TRAS_BMRANK_H__
+#define	__TRAS_BMRANK_H__
 
-
-/*
- * The parameters for the Binary Matrix Rank Test.
- */
-struct bmatrix_params {
-	unsigned int	m;	/* number of rows for matrices */
-	unsigned int	q;	/* number of columns for matrices */
-	double		alpha;	/* significance level for H0 */
-};
-
-/*
- * The minimum number of rows for each matrix, not defined yet.
- */
-#define	BMATRIX_MIN_M	16	/* XXX: temporary definition */
-
-#define	BMATRIX_MAX_M	32	/* XXX: temporary definition */
-
-/*
- * The minimum number of columns for each matrix, not defined yet.
- */
-#define	BMATRIX_MIN_Q	16	/* XXX: temporary definition */
-
-#define	BMATRIX_MAX_Q	32	/* XXX: temporary definition */
-
-/*
- * The minimum number of matrices to process for valid statistics.
- */
-#define	BMATRIX_MIN_MATRICES	38	/* min number of matrices */
-
-#define	BMATRIX_MAX_MATRICES	0	/* no restriction */
-
-TRAS_DECLARE_ALGO(bmatrix);
+unsigned int binary_matrix_rank(uint32_t *, unsigned int, unsigned int);
 
 #endif
-

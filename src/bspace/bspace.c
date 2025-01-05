@@ -88,7 +88,7 @@ quicksort_int(unsigned int *table, int l, int r)
 	 */
 	t = table[r];
 	table[r] = v;
-	table[p] = v;
+	table[p] = t;
 
 	a = l;
 	for (i = l; i < r; i++) {
