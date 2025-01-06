@@ -28,7 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * The Count-the-1's Test (Stream of Bits)
+ * TODO: name of the test.
  */
 
 #include <stdint.h>
@@ -46,7 +46,7 @@
 	#include <stdio.h>
 
 /*
- * Bytes to letters map.
+ * The mapping from bytes to letter through their Hamming weight.
  */
 static uint8_t b2lmap[256] = {
 	0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 2,
@@ -68,7 +68,7 @@ static uint8_t b2lmap[256] = {
 };
 
 /*
- * Two letters word to index map.
+ * The helper mapping from two letters word to index map.
  */
 static uint8_t w2imap[40] = {
 	 0,  1,  2,  3,  4,  0,  0,  0, 
@@ -79,14 +79,14 @@ static uint8_t w2imap[40] = {
 };
 
 /*
- * Letters probabilities.
+ * The probabilities of letters in the monkey test.
  */
 static double lprob[5] = {
-	0.14453125,
-	0.21875000,
-	0.27343750,
-	0.21875000,
-	0.14453125,
+	0.14453125,		/* [0]: {0, 1, 2} -> A */
+	0.21875000,		/* [1]: {3} -> B */
+	0.27343750,		/* [2]: {4} -> C */
+	0.21875000,		/* [3]: {5} -> D */
+	0.14453125,		/* [4]: {6, 7, 8} -> E */
 };
 
 /*
@@ -103,32 +103,40 @@ static double lprob[5] = {
 #define	min(a, b)	(((a) < (b)) ? (a) : (b))
 
 /*
- * The context for the Count-the-1's Test (Stream of Bits)
+ * The context for the generic count-the-1's test.
  */
-struct c1tsbits_ctx {
-	unsigned int	nbits;	/* number of bits processed */
+struct cntones_ctx {
 	uint8_t		last;	/* bits left from previous update */
 	uint32_t	word;	/* last word colected from updates */
 	unsigned int *	w4freq;	/* four letter words frequencies */
 	unsigned int *	w5freq;	/* five letter words frequencies */
+	int		algo;	/* algo type and type of byte selection */
+	unsigned int	sbit;	/* selected start bit from random word */
+	unsigned int	nbits;	/* number of bits processed */
 	double		alpha;	/* significance level for H0 */
 };
 
 int
-c1tsbits_init(struct tras_ctx *ctx, void *params)
+cntones_init(struct tras_ctx *ctx, void *params)
 {
-	struct c1tsbits_params *p = params;
-	struct c1tsbits_ctx *c;
+	struct cntones_params *p = params;
+	struct cntones_ctx *c;
 	size_t size;
 	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	size = sizeof(struct c1tsbits_ctx) + 625 * sizeof(unsigned int) +
+	if (p->algo != CNTONES_ALGO_BITSTREAM &&
+	    p->algo != CNTONES_ALGO_SELBYTES)
+		return (EINVAL);
+	if (p->sbit > 23)
+		return (EINVAL);
+
+	size = sizeof(struct cntones_ctx) + 625 * sizeof(unsigned int) +
 	    3125 * sizeof(unsigned int);
 
-	error = tras_init_context(ctx, &c1tsbits_algo, size, TRAS_F_ZERO);
+	error = tras_init_context(ctx, &cntones_algo, size, TRAS_F_ZERO);
 	if (error != 0)
 		return (error);
 	c = ctx->context;
@@ -157,7 +165,7 @@ c1tsbits_init(struct tras_ctx *ctx, void *params)
 #endif
 
 static inline uint8_t
-c1tsbits_extract_byte(uint8_t *p, unsigned int offs)
+cntones_extract_byte(uint8_t *p, unsigned int offs)
 {
 	uint16_t u16;
 	unsigned int n;
@@ -177,7 +185,7 @@ c1tsbits_extract_byte(uint8_t *p, unsigned int offs)
 #ifdef notyet
 
 int
-c1tsbits_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+cntones_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct c1tsbits_ctx *c;
 	uint8_t *p, h, b;
@@ -232,19 +240,17 @@ c1tsbits_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	#include <stdio.h>
 
 int
-c1tsbits_update8(struct tras_ctx *ctx, void *data, unsigned int nbits)
+cntones_update_bitstream(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	struct c1tsbits_ctx *c;
+	struct cntones_ctx *c;
 	unsigned int j, n, id4, id5;
 	uint32_t word;
 	uint8_t *p;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	if (nbits & 0x07) {
-		printf("nbits = %u\n", nbits);
+	if (nbits & 0x07)
 		return (EINVAL);
-	}
 
 	c = ctx->context;
 	p = (uint8_t *)data;
@@ -279,19 +285,23 @@ c1tsbits_update8(struct tras_ctx *ctx, void *data, unsigned int nbits)
 }
 
 int
-c1tsbits_final(struct tras_ctx *ctx)
+cntones_final(struct tras_ctx *ctx)
 {
-	struct c1tsbits_ctx *c;
+	struct cntones_ctx *c;
 	double pvalue, s, d, v2, v1, *exp;
 	int i, j, w, l;
 
 	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
-	if (c->nbits < C1TSBITS_MIN_NBITS) {
-		printf("nbits = %u, needed = %u\n", c->nbits, C1TSBITS_MIN_NBITS);
+
+	if (c->nbits < C1TSBITS_MIN_NBITS)
 		return (EALREADY);
-	}
+
+	/*
+	 * XXX: when the chi-square algo implementation is completed
+	 * we will use it to get the results - pvalue, result and stats.
+	 */
 
 	exp = malloc(3125 * sizeof(double));
 	if (exp == NULL)
@@ -311,8 +321,6 @@ c1tsbits_final(struct tras_ctx *ctx)
 		d = (double)c->w5freq[i]  - exp[i];
 		v2 += d * d / exp[i];
 	}
-	// pvalue = igamc(3124.0 / 2, v2 / 2.0);
-	// printf("v2 = %f\n", v2);
 
 	/* Get expected value for four letter words */
 	for (i = 0; i < 625; i++) {
@@ -328,11 +336,9 @@ c1tsbits_final(struct tras_ctx *ctx)
 		d = (double)c->w4freq[i] - exp[i];
 		v1 += d * d / exp[i];
 	}
-	// pvalue = igamc(624 / 2, v1 / 2.0);
-	// printf("v1 = %f\n", v1);
-	// printf("v2 - v1 = %f\n", v2 - v1);
 
-	s = fabs(v2 - v1 - C1TSBITS_MEAN) / C1TSBITS_STDDEV / sqrt((double)2.0);
+	s = fabs(v2 - v1 - CNTONES_MEAN) / CNTONES_STDDEV;
+	s = s / sqrt(2.0);
 	pvalue = erfc(fabs(s));
 
 	if (pvalue < c->alpha)
@@ -340,7 +346,13 @@ c1tsbits_final(struct tras_ctx *ctx)
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.discard = c->nbits - C1TSBITS_MIN_NBITS;
+#ifdef notyet
+	if (c->algo == CNTONES_ALGO_BITSTREAM)
+		ctx->result.discard = c->nbits - C1TSBITS_MIN_NBITS;
+	else if (c->algo == CNTONES_ALGO_SELBYTES)
+		ctx->result.discard = c->nbits - C1TSBYTE_MIN_NBITS;
+#endif
+
 	ctx->result.pvalue1 = pvalue;
 
 	tras_fini_context(ctx, 0);
@@ -349,35 +361,35 @@ c1tsbits_final(struct tras_ctx *ctx)
 }
 
 int
-c1tsbits_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
+cntones_test(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
 	return (tras_do_test(ctx, data, nbits));
 }
 
 int
-c1tsbits_restart(struct tras_ctx *ctx, void *params)
+cntones_restart(struct tras_ctx *ctx, void *params)
 {
 
 	return (tras_do_restart(ctx, params));
 }
 
 int
-c1tsbits_free(struct tras_ctx *ctx)
+cntones_free(struct tras_ctx *ctx)
 {
 
 	return (tras_do_free(ctx));
 }
 
-const struct tras_algo c1tsbits_algo = {
-	.name =		"c1tsbits",
-	.desc =		"Count-the-1's Test (Stream of Bits)",
+const struct tras_algo cntones_algo = {
+	.name =		"cntones",
+	.desc =		"Generic Count-the-1's Test",
 	.id =		0,
 	.version =	{ 0, 1, 1 },
-	.init =		c1tsbits_init,
-	.update =	c1tsbits_update8,
-	.test =		c1tsbits_test,
-	.final =	c1tsbits_final,
-	.restart =	c1tsbits_restart,
-	.free =		c1tsbits_free,
+	.init =		cntones_init,
+	.update =	cntones_update8,
+	.test =		cntones_test,
+	.final =	cntones_final,
+	.restart =	cntones_restart,
+	.free =		cntones_free,
 };
