@@ -41,14 +41,14 @@
 #include <utils.h>
 #include <cdefs.h>
 #include <bits.h>
-#include <c1tsbits.h>
+#include <cntones.h>
 
 	#include <stdio.h>
 
 /*
  * The mapping from bytes to letter through their Hamming weight.
  */
-static uint8_t b2lmap[256] = {
+uint8_t b2lmap[256] = {
 	0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 2,
 	0, 0, 0, 1, 0, 1, 1, 2, 0, 1, 1, 2, 1, 2, 2, 3,
 	0, 0, 0, 1, 0, 1, 1, 2, 0, 1, 1, 2, 1, 2, 2, 3,
@@ -90,31 +90,10 @@ static double lprob[5] = {
 };
 
 /*
- * The V1 - V2 statistics is asymptotically normal with the below parameters.
- */
-#define	C1TSBITS_MEAN		2500
-
-#define	C1TSBITS_STDDEV		70.71
-
-/*
  * XXX: temporary definition here to move to an include file.
  */
 #define miss(c, cmax)   (((c) < (cmax)) ? (cmax) - (c) : 0)
 #define	min(a, b)	(((a) < (b)) ? (a) : (b))
-
-/*
- * The context for the generic count-the-1's test.
- */
-struct cntones_ctx {
-	uint8_t		last;	/* bits left from previous update */
-	uint32_t	word;	/* last word colected from updates */
-	unsigned int *	w4freq;	/* four letter words frequencies */
-	unsigned int *	w5freq;	/* five letter words frequencies */
-	int		algo;	/* algo type and type of byte selection */
-	unsigned int	sbit;	/* selected start bit from random word */
-	unsigned int	nbits;	/* number of bits processed */
-	double		alpha;	/* significance level for H0 */
-};
 
 int
 cntones_init(struct tras_ctx *ctx, void *params)
@@ -127,11 +106,17 @@ cntones_init(struct tras_ctx *ctx, void *params)
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	if (p->algo != CNTONES_ALGO_BITSTREAM &&
-	    p->algo != CNTONES_ALGO_SELBYTES)
+	switch (p->algo) {
+	case CNTONES_ALGO_BITSTREAM:
+		/* Ignore sbits */
+		break;
+	case CNTONES_ALGO_SELBYTES:
+		if (p->sbit > 23)
+			return (EINVAL);
+		break;
+	default:
 		return (EINVAL);
-	if (p->sbit > 23)
-		return (EINVAL);
+	}
 
 	size = sizeof(struct cntones_ctx) + 625 * sizeof(unsigned int) +
 	    3125 * sizeof(unsigned int);
@@ -143,6 +128,7 @@ cntones_init(struct tras_ctx *ctx, void *params)
 
 	c->w4freq = (unsigned int *)(c + 1);
 	c->w5freq = (unsigned int *)(c->w4freq + 625);
+	c->sbits = p->sbits;
 	c->alpha = p->alpha;
 
 	return (0);

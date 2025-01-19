@@ -45,6 +45,18 @@
 
 	#include <stdio.h>
 
+/*
+ * The context for the Count-the-1's Test (Stream of Bits)
+ */
+struct c1tsbyte_ctx {
+	unsigned int	nbits;	/* number of bits processed */
+	uint8_t		last;	/* bits left from previous update */
+	uint32_t	word;	/* last word colected from updates */
+	unsigned int *	w4freq;	/* four letter words frequencies */
+	unsigned int *	w5freq;	/* five letter words frequencies */
+	double		alpha;	/* significance level for H0 */
+};
+
 int
 c1tsbyte_init(struct tras_ctx *ctx, void *params)
 {
@@ -71,6 +83,7 @@ c1tsbyte_init(struct tras_ctx *ctx, void *params)
 	return (0);
 }
 
+#ifdef notyet
 int
 c1tsbyte_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
@@ -78,6 +91,17 @@ c1tsbyte_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (ENOSYS);
 
 }
+
+#else
+
+int
+c1tsbyte_update32(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+
+	return (ENOSYS);
+
+}
+#endif
 
 int
 c1tsbyte_final(struct tras_ctx *ctx)

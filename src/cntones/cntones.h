@@ -43,6 +43,32 @@ struct c1tsbits_params {
 };
 
 /*
+ * The generic count-the-1's test private context.
+ */
+struct cntones_ctx {
+	uint8_t		last;	/* bits left from previous update */
+	uint32_t	word;	/* last word colected from updates */
+	unsigned int *	w4freq;	/* four letter words frequencies */
+	unsigned int *	w5freq;	/* five letter words frequencies */
+	int		algo;	/* algo type and type of byte selection */
+	unsigned int	sbits;	/* selected start bit from random word */
+	unsigned int	nbits;	/* number of bits processed */
+	double		alpha;	/* significance level for H0 */
+};
+
+/*
+ * The mapping from bytes to letter through their Hamming weight.
+ */
+extern uint8_t b2lmap[256];
+
+/*
+ * The V1 - V2 statistics is asymptotically normal with the below parameters.
+ */
+#define	CNTONES_MEAN		2500
+
+#define	CNTONES_STDDEV		70.71
+
+/*
  * The Count-the-1's version of the test if its input is stream of bits.
  */
 #define	CNTONES_ALGO_BITSTREAM	1

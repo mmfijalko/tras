@@ -311,8 +311,6 @@ c1tsbits_final(struct tras_ctx *ctx)
 		d = (double)c->w5freq[i]  - exp[i];
 		v2 += d * d / exp[i];
 	}
-	// pvalue = igamc(3124.0 / 2, v2 / 2.0);
-	// printf("v2 = %f\n", v2);
 
 	/* Get expected value for four letter words */
 	for (i = 0; i < 625; i++) {
@@ -328,9 +326,6 @@ c1tsbits_final(struct tras_ctx *ctx)
 		d = (double)c->w4freq[i] - exp[i];
 		v1 += d * d / exp[i];
 	}
-	// pvalue = igamc(624 / 2, v1 / 2.0);
-	// printf("v1 = %f\n", v1);
-	// printf("v2 - v1 = %f\n", v2 - v1);
 
 	s = fabs(v2 - v1 - C1TSBITS_MEAN) / C1TSBITS_STDDEV / sqrt((double)2.0);
 	pvalue = erfc(fabs(s));
