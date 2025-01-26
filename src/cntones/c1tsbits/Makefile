@@ -1,15 +1,19 @@
 
 CFLAGS=	-g
 CFLAGS+=-I${CURDIR}
-CFLAGS+=-I${CURDIR}/../include/
-CFLAGS+=-I${CURDIR}/../utils/
+FAMDIR=${CURDIR}/../
 
-VPATH+=${CURDIR}/../utils/
-VPATH+=${CURDIR}/../tras/
+CFLAGS+=-I${FAMDIR}
+CFLAGS+=-I${FAMDIR}/../include/
+CFLAGS+=-I${FAMDIR}/../utils/
+
+VPATH+=${FAMDIR}
+VPATH+=${FAMDIR}/../utils/
+VPATH+=${FAMDIR}/../tras/
 
 LDFLAGS=-lm
 
-all: c1tsbits.o hamming8.o utils.o tras.o
+all: c1tsbits.o hamming8.o utils.o tras.o cntones.o
 
 %.o: %.c
 	${CC} ${CFLAGS} -c $< -o $@
