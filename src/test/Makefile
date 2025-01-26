@@ -27,12 +27,13 @@ CFLAGS+=-I${CURDIR}/../bspace/
 CFLAGS+=-I${CURDIR}/../craps/
 CFLAGS+=-I${CURDIR}/../cephes/
 CFLAGS+=-I${CURDIR}/../chi2/
-CFLAGS+=-I${CURDIR}/../c1tsbits/
+CFLAGS+=-I${CURDIR}/../cntones/c1tsbits/
 CFLAGS+=-I${CURDIR}/../bmatrix/
 CFLAGS+=-I${CURDIR}/../bmatrix/bmrank/
 CFLAGS+=-I${CURDIR}/../bmatrix/brank31/
 CFLAGS+=-I${CURDIR}/../bmatrix/brank32/
 CFLAGS+=-I${CURDIR}/../bmatrix/brank68/
+CFLAGS+=-I${CURDIR}/../cntones/
 
 VPATH+=${CURDIR}/../utils/
 VPATH+=${CURDIR}/../tras/
@@ -61,12 +62,13 @@ VPATH+=${CURDIR}/../bspace/
 VPATH+=${CURDIR}/../craps/
 VPATH+=${CURDIR}/../cephes/
 VPATH+=${CURDIR}/../chi2/
-VPATH+=${CURDIR}/../c1tsbits/
+VPATH+=${CURDIR}/../cntones/c1tsbits/
 VPATH+=${CURDIR}/../bmatrix/
 VPATH+=${CURDIR}/../bmatrix/bmrank/
 VPATH+=${CURDIR}/../bmatrix/brank31/
 VPATH+=${CURDIR}/../bmatrix/brank32/
 VPATH+=${CURDIR}/../bmatrix/brank68/
+VPATH+=${CURDIR}/../cntones/
 
 LDFLAGS=-lm
 
@@ -76,7 +78,7 @@ test: hamming8.o utils.o tras.o igamc.o chi2.o chi2_utils.o frequency.o runs.o \
       blkfreq.o sphere3d.o mindist.o plot.o squeeze.o approxe.o sparse.o \
       opso.o otso.o oqso.o dna.o bstream.o cusum.o excursionv.o excursion.o universal.o \
       maurer.o coron.o longruns.o bspace.o craps.o lentz_gamma.o bmatrix.o bmrank.o brank31.o \
-      brank32.o brank68.o c1tsbits.o test.o
+      brank32.o brank68.o c1tsbits.o test.o cntones.o
 	${CC} $^ ${LDFLAGS} -o test
 
 %.o: %.c

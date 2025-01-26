@@ -173,6 +173,12 @@ struct c1tsbits_params c1tsbits_params = {
 	.alpha = 0.01,
 };
 
+struct cntones_params cntones_params = {
+	.algo = CNTONES_ALGO_BITSTREAM,
+	.sbit = 0,
+	.alpha = 0.1,
+};
+
 struct bmrank_params bmrank_pq31_params = {
 	.uniform = 1,
 	.m = 31,
@@ -232,7 +238,6 @@ static const struct test_algo algo_list[] = {
 	{ "approxe", &approxe_algo, &approxe_params },
 	{ "blkfreq", &blkfreq_algo, &blkfreq_params },
 	{ "bstream", &bstream_algo, &bstream_params },
-	{ "c1tssbytes", NULL, NULL },
 	{ "cusum", &cusum_algo, &cusum_params_fw },
 	{ "cusumfw", &cusum_algo, &cusum_params_fw },
 	{ "cusumbw", &cusum_algo, &cusum_params_bw },
@@ -261,6 +266,8 @@ static const struct test_algo algo_list[] = {
 
 	{ "bspace", &bspace_algo, &bspace_params },
 	{ "c1tsbits", &c1tsbits_algo, &c1tsbits_params, },
+	{ "c1tssbytes", NULL, NULL },
+	{ "cntones", &cntones_algo, &cntones_params },
 	{ "craps", &craps_algo, &craps_params },
 	{ "opso", &opso_algo, &opso_params },
 	{ "otso", &otso_algo, &otso_params },
