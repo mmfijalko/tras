@@ -36,11 +36,14 @@
 /*
  * The generic count-the-1's test parameters
  */
-struct c1tsbits_params {
+struct cntones_params {
 	int		algo;	/* algo type and type of byte selection */
 	unsigned int	sbit;	/* selected start bit from random word */
+	unsigned int	wsize;	/* the generator word size */
 	double		alpha;	/* significance level for H0 */
 };
+
+typedef tras_test_update_t	cntones_upd_t;
 
 /*
  * The generic count-the-1's test private context.
@@ -50,8 +53,13 @@ struct cntones_ctx {
 	uint32_t	word;	/* last word colected from updates */
 	unsigned int *	w4freq;	/* four letter words frequencies */
 	unsigned int *	w5freq;	/* five letter words frequencies */
+	unsigned int	nwords;	/* the number of words processed */
 	int		algo;	/* algo type and type of byte selection */
-	unsigned int	sbits;	/* selected start bit from random word */
+	unsigned int	sbit;	/* selected start bit from random word */
+	unsigned int	wsize;	/* the generator word size */
+	unsigned int	minbits;/* the minimum number of bits to finalize */
+	int		bitres;	/* bits resolution update allowed */
+	cntones_upd_t *	update;	/* the update function to use as method */
 	unsigned int	nbits;	/* number of bits processed */
 	double		alpha;	/* significance level for H0 */
 };
@@ -59,7 +67,7 @@ struct cntones_ctx {
 /*
  * The mapping from bytes to letter through their Hamming weight.
  */
-extern uint8_t b2lmap[256];
+// extern uint8_t b2lmap[256];
 
 /*
  * The V1 - V2 statistics is asymptotically normal with the below parameters.
@@ -91,7 +99,7 @@ extern uint8_t b2lmap[256];
 /*
  * The stream is treated as sequence of bytes and letters.
  */
-#define	C1TSBITS_BYTES		C1TSBITS_LETTERS
+#define	C1TSBITS_BYTES		CNTONES_LETTERS
 
 /*
  * The number of bits is strictly defined.
@@ -100,7 +108,7 @@ extern uint8_t b2lmap[256];
 
 #define	C1TSBITS_MAX_NBITS	C1TSBITS_MIN_NBITS
 
-TRAS_DECLARE_ALGO(c1tsbits);
+TRAS_DECLARE_ALGO(cntones);
 
 #endif
 

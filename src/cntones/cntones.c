@@ -28,7 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * TODO: name of the test.
+ * The generic count-the-1's test to construct other more specific tests.
  */
 
 #include <stdint.h>
@@ -43,12 +43,12 @@
 #include <bits.h>
 #include <cntones.h>
 
-	#include <stdio.h>
+#include <stdio.h>
 
 /*
  * The mapping from bytes to letter through their Hamming weight.
  */
-uint8_t b2lmap[256] = {
+static uint8_t b2lmap[256] = {
 	0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 2,
 	0, 0, 0, 1, 0, 1, 1, 2, 0, 1, 1, 2, 1, 2, 2, 3,
 	0, 0, 0, 1, 0, 1, 1, 2, 0, 1, 1, 2, 1, 2, 2, 3,
@@ -95,16 +95,34 @@ static double lprob[5] = {
 #define miss(c, cmax)   (((c) < (cmax)) ? (cmax) - (c) : 0)
 #define	min(a, b)	(((a) < (b)) ? (a) : (b))
 
+static int cntones_c1tsbits_update(struct tras_ctx *ctx, void *data,
+    unsigned int nbits);
+static int cntones_c1tsbyte_update(struct tras_ctx *ctx, void *data,
+    unsigned int nbits);
+
 int
 cntones_init(struct tras_ctx *ctx, void *params)
 {
 	struct cntones_params *p = params;
 	struct cntones_ctx *c;
+	cntones_upd_t *update;
 	size_t size;
 	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
+
+	if (p->wsize == 32) {
+		if (p->sbit > 23)
+			return (EINVAL);
+		update = cntones_c1tsbyte_update;
+	} else if (p->wsize == 8) {
+		if (p->sbit != 0)
+			return (EINVAL);
+		update = cntones_c1tsbits_update;
+	} else {
+		return (EINVAL);
+	}
 
 	switch (p->algo) {
 	case CNTONES_ALGO_BITSTREAM:
@@ -128,7 +146,10 @@ cntones_init(struct tras_ctx *ctx, void *params)
 
 	c->w4freq = (unsigned int *)(c + 1);
 	c->w5freq = (unsigned int *)(c->w4freq + 625);
-	c->sbits = p->sbits;
+	c->algo = p->algo;
+	c->update = update;
+	c->wsize = p->wsize;
+	c->sbit = p->sbit;
 	c->alpha = p->alpha;
 
 	return (0);
@@ -168,12 +189,14 @@ cntones_extract_byte(uint8_t *p, unsigned int offs)
 	return ((uint8_t)(u16 & 0x00ff));
 }
 
-#ifdef notyet
+#define	C1TSBITS_WORDMASK	0x00007fff
+
+#if 0
 
 int
-cntones_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+c1tsbits_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
-	struct c1tsbits_ctx *c;
+	struct cntones_ctx *c;
 	uint8_t *p, h, b;
 	unsigned int i, n, r, offs;
 
@@ -221,12 +244,8 @@ cntones_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 }
 #endif
 
-#define	C1TSBITS_WORDMASK	0x00007fff
-
-	#include <stdio.h>
-
-int
-cntones_update_bitstream(struct tras_ctx *ctx, void *data, unsigned int nbits)
+static int
+cntones_update8(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct cntones_ctx *c;
 	unsigned int j, n, id4, id5;
@@ -263,6 +282,7 @@ cntones_update_bitstream(struct tras_ctx *ctx, void *data, unsigned int nbits)
 		c->w4freq[id4]++;
 		c->w5freq[id5]++;
 		n--;
+		c->nwords++;
 	}
 	c->word = word;
 	c->nbits += nbits;
@@ -270,19 +290,103 @@ cntones_update_bitstream(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (0);
 }
 
+static int
+cntones_c1tsbits_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+
+	return (cntones_update8(ctx, data, nbits));
+}
+
+static int
+cntones_c1tsbyte_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+
+	return (ENOSYS);
+}
+
+int
+cntones_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+	struct cntones_ctx *c;
+
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
+	c = ctx->context;
+
+	return (c->update(ctx, data, nbits));
+}
+
+#if 0
+
+int
+cntones_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+	struct cntones_ctx *c;
+	uint8_t *p, h, b;
+	unsigned int i, n, r, offs;
+
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
+	c = ctx->context;
+	p = (uint8_t *)data;
+
+	r = c->nbits & 0x07;
+
+	if (nbits > 0) {
+		offs = 8 - r;
+		if (r > 0) {
+			c->last |= (*p >> r) & lmask8[offs];
+			if (nbits < offs) {
+				c->last &= mmask8[nbits + r];
+			} else {
+				h = hamming8[c->last];
+				c1tsbits_update_freq(c, h);
+				c->last = 0;
+				n = nbits - offs;
+				r = n & 0x07;
+				n = n >> 3;
+				for (i = 0; i < n; i++, p++) {
+					b = __EXTRACT_BYTE(p, offs);
+					h = hamming8[b];
+					c1tsbits_update_freq(c, h);
+				}
+			}
+		} else {
+			n = nbits >> 3;
+			for (i = 0; i < n; i++, p++) {
+				h = hamming8[*p];
+				c1tsbits_update_freq(c, h);
+			}
+			r = nbits & 0x07;
+		}
+		if (r > 0)
+			c->last = *p & mmask8[r];
+		break;
+	}
+	c->nbits += nbits;
+
+	return (0);
+}
+#endif
+
 int
 cntones_final(struct tras_ctx *ctx)
 {
 	struct cntones_ctx *c;
 	double pvalue, s, d, v2, v1, *exp;
+	unsigned int minbits;
 	int i, j, w, l;
 
 	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 
+	if (c->nwords < CNTONES_WORDS)
+		return (EALREADY);
+#if 0
 	if (c->nbits < C1TSBITS_MIN_NBITS)
 		return (EALREADY);
+#endif
 
 	/*
 	 * XXX: when the chi-square algo implementation is completed
@@ -295,7 +399,7 @@ cntones_final(struct tras_ctx *ctx)
 
 	/* Get expected value for five letter words */
 	for (i = 0; i < 3125; i++) {
-		exp[i] = C1TSBITS_WORDS;
+		exp[i] = CNTONES_WORDS;
 		w = i;
 		for (j = 0; j < 5; j++) {
 			l = w % 5;
@@ -310,7 +414,7 @@ cntones_final(struct tras_ctx *ctx)
 
 	/* Get expected value for four letter words */
 	for (i = 0; i < 625; i++) {
-		exp[i] = C1TSBITS_WORDS;
+		exp[i] = CNTONES_WORDS;
 		w = i;
 		for (j = 0; j < 4; j++) {
 			l = w % 5;
@@ -332,12 +436,7 @@ cntones_final(struct tras_ctx *ctx)
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-#ifdef notyet
-	if (c->algo == CNTONES_ALGO_BITSTREAM)
-		ctx->result.discard = c->nbits - C1TSBITS_MIN_NBITS;
-	else if (c->algo == CNTONES_ALGO_SELBYTES)
-		ctx->result.discard = c->nbits - C1TSBYTE_MIN_NBITS;
-#endif
+	ctx->result.discard = c->nbits - CNTONES_LETTERS * c->wsize;
 
 	ctx->result.pvalue1 = pvalue;
 
