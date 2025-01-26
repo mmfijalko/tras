@@ -42,72 +42,33 @@
 #include <cdefs.h>
 #include <bits.h>
 #include <c1tsbyte.h>
-
-	#include <stdio.h>
-
-/*
- * The context for the Count-the-1's Test (Stream of Bits)
- */
-struct c1tsbyte_ctx {
-	unsigned int	nbits;	/* number of bits processed */
-	uint8_t		last;	/* bits left from previous update */
-	uint32_t	word;	/* last word colected from updates */
-	unsigned int *	w4freq;	/* four letter words frequencies */
-	unsigned int *	w5freq;	/* five letter words frequencies */
-	double		alpha;	/* significance level for H0 */
-};
+#include <cntones.h>
 
 int
 c1tsbyte_init(struct tras_ctx *ctx, void *params)
 {
 	struct c1tsbyte_params *p = params;
-	struct c1tsbyte_ctx *c;
-	size_t size;
-	int error;
+	struct cntones_params pp;
 
-	TRAS_CHECK_INIT(ctx);
-	TRAS_CHECK_PARA(p, p->alpha);
+	pp.algo = CNTONES_ALGO_SELBYTES;
+	pp.sbit = 0,
+	pp.alpha = p->alpha; 
 
-	size = sizeof(struct c1tsbits_ctx) + 625 * sizeof(unsigned int) +
-	    3125 * sizeof(unsigned int);
-
-	error = tras_init_context(ctx, &c1tsbyte_algo, size, TRAS_F_ZERO);
-	if (error != 0)
-		return (error);
-	c = ctx->context;
-
-	c->w4freq = (unsigned int *)(c + 1);
-	c->w5freq = (unsigned int *)(c->w4freq + 625);
-	c->alpha = p->alpha;
-
-	return (0);
+	return (cntones_init(ctx, &pp));
 }
 
-#ifdef notyet
 int
 c1tsbyte_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 
-	return (ENOSYS);
-
+	return (cntones_update(ctx, data, nbits));
 }
-
-#else
-
-int
-c1tsbyte_update32(struct tras_ctx *ctx, void *data, unsigned int nbits)
-{
-
-	return (ENOSYS);
-
-}
-#endif
 
 int
 c1tsbyte_final(struct tras_ctx *ctx)
 {
 
-	return (ENOSYS);
+	return (cntones_final(ctx));
 }
 
 int

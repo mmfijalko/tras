@@ -1,11 +1,15 @@
 
 CFLAGS=	-g
-CFLAGS+=-I${CURDIR}
-CFLAGS+=-I${CURDIR}/../include/
-CFLAGS+=-I${CURDIR}/../utils/
+FAMDIR=${CURDIR}/../
 
-VPATH+=${CURDIR}/../utils/
-VPATH+=${CURDIR}/../tras/
+CFLAGS+=-I${CURDIR}
+CFLAGS+=-I${FAMDIR}
+CFLAGS+=-I${FAMDIR}/../include/
+CFLAGS+=-I${FAMDIR}/../utils/
+
+VPATH+=${FAMDIR}
+VPATH+=${FAMDIR}/../utils/
+VPATH+=${FAMDIR}/../tras/
 
 LDFLAGS=-lm
 
