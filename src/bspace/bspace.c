@@ -44,6 +44,8 @@
 #include <utils.h>
 #include <bits.h>
 #include <bspace.h>
+#include <utils.h>
+#include <igamc.h>
 
 #include <stdio.h>
 
@@ -125,29 +127,6 @@ sbs_sort_intvs(struct sbs_ctx *c)
 {
 
 	quicksort(c->intvs, c->m);
-}
-
-static inline uint32_t
-bswap32(void *d)
-{
-	uint8_t *p = (uint8_t *)d;
-
-	return (((uint32_t)p[3] << 24) | (p[2] << 16) | (p[1] << 8) | p[0]);
-}
-
-static inline uint32_t
-rotate32(uint32_t u, int off)
-{
-
-	return ((u << (31 - off)) | (u >> off));
-}
-
-static inline uint32_t
-sbs_be32enc(void *d)
-{
-	uint8_t *p = (uint8_t *)d;
-
-	return (((uint32_t)p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]);
 }
 
 /*
@@ -246,12 +225,40 @@ sbs_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	return (0);
 }
 
+/*
+ * Probability density function of the Poisson distribution.
+ */
 static double
-sbs_poison_pdf(int k, double lambda)
+sbs_poisson_pdf(unsigned int k, double lambda)
 {
 
 	return (exp(-lambda) * pow(lambda, k) / tgamma(k + 1));
 }
+
+/*
+ * The Cumulative distribution function of the Poisson distribution.
+ */
+static double
+sbs_poisson_cdf(unsigned int k, double lambda)
+{
+
+	return (igamc((double)(k + 1), lambda));
+}
+
+#if 0
+static int
+sbs_poisson_max_expected(double *exp, int k, unsigned long long m,
+    unsigned long long n)
+{
+	int i, kmax;
+
+	for (i = 0, kmax = 0; i < k; i++) {
+		exp[i] = spbs_poisson_pdf(i, lambda);
+		kmax++;
+	}
+	return (kmax);
+}
+#endif
 
 int
 sbs_final(struct tras_ctx *ctx)
@@ -313,16 +320,10 @@ sbs_final(struct tras_ctx *ctx)
 	printf("%s: final K = %u\n", __func__, K);
 
 	/*
-	 * todo: implementation.
-	 */
-
-	pvalue = 0.0;
-
-	/*
 	 * Compute the Poisson distribution parameter.
 	 */
 	lambda = (pow((double)c->m, 3.0) / 4.0 / (double)c->n);
-	(void)lambda;
+	pvalue = 1.0 - sbs_poisson_cdf(K, lambda);
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
@@ -388,6 +389,37 @@ struct bspace_ctx {
 	struct bspace_params	param;	/* the single test params */
 };
 
+#if 0
+static unsigned int
+bspace_poisson_max_expected(double *exp, unsigned int k, unsigned long long m,
+    unsigned long long n)
+{
+	unsigned int kmax;
+	double lambda;
+
+	lambda = pow((double)m, 3.0) / (4.0 * (double)n);
+	for (kmax = 1; kmax < k; kmax++) {
+		exp[i] = spbs_poisson_pdf(i, lambda);
+		if (exp[i] < 5)
+			break;
+	}
+	return (kmax + 1);
+}
+
+static int
+bspace_poisson_fill_exp(double *exp, int k, unsigned long long m,
+    unsigned long long n)
+{
+	int i, kmax;
+
+	for (i = 0, kmax = 0; i < k; i++) {
+		exp[i] = spbs_poisson_pdf(i, lambda);
+		kmax++;
+	}
+	return (kmax);
+}
+#endif
+
 int
 bspace_init(struct tras_ctx *ctx, void *params)
 {
@@ -431,11 +463,11 @@ bspace_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct bspace_ctx *c;
 	struct sbs_ctx *sbc;
-	unsigned int i, k, sn;
+	unsigned int i, k, b, n, sn;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
-	c = ctx->context
+	c = ctx->context;
 
 	if (nbits & 0x1f)
 		return (EINVAL);
@@ -446,18 +478,20 @@ bspace_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	/* How many single statistics to update */
 	n = miss(c->jidx, c->jmax);
 
+#ifdef notyet
 	/* The number of words for single birthday spacing test */
-	sn = 
+ 	sn =
+#endif
 
 	n = min(n, nbits / 32);
 	n = n + b;
 
-	if (c->jidx >= c->max) {
+	if (c->jidx >= c->jmax) {
 		c->nbits += nbits;
 		return (0);
 	}
 
-	ctx->nbits += nbits;
+	c->nbits += nbits;
 
 	return (0);
 }
