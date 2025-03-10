@@ -39,27 +39,44 @@
  * of pairs of sequencial birtdays with the spacing of more than one day).
  */
 struct bspace_params {
-	unsigned int	m;	/* number of birthdays */
-	unsigned int	n;	/* number of days in a year */
-	unsigned int	b;	/* bits offset in generator word */
-	unsigned int	q;	/* number of bits per day */
-	unsigned int	jn;	/* number of j's stats for chi2 */
-	double		alpha;	/* significance level for H0 */
+	unsigned long long	m;	/* number of birthdays */
+	unsigned long long	n;	/* number of days in a year */
+	unsigned int		b;	/* bits offset in generator word */
+	unsigned int		q;	/* number of bits per day */
+	unsigned int		jn;	/* number of j's stats for chi2 */
+	double			alpha;	/* significance level for H0 */
 };
 
 /*
  * Practical restrictions for the test.
  */
-#define	BSPACE_MIN_M		8
-#define	BSPACE_MAX_M		32
+#define	BSPACE_MIN_Q		8	/* minimum number of birthdays 2^8 */
+#define	BSPACE_MAX_Q		32	/* maximum number of birthdays 2^32 */
 
+#define	BSPACE_MIN_M		(1ULL << BSPACE_MIN_Q)
+#define	BSPACE_MAX_M		(1ULL << BSPACE_MAX_Q)
+
+/*
+ * Maximum and minimu numbers of days in a year. The minimu is large enough
+ * to compare results to the Poison distributes with mean m^3/(4n).
+ */
+#define	BSPACE_MIN_N		(1ULL << 18)	/* enough to make sense */
+#define	BSPACE_MAX_N		(1ULL << 32)	/* full 32 bits of words */
+
+/*
+ * Bit offset range for getting birthday from one generator word.
+ */
 #define	BSPACE_MIN_BIT_OFFSET	0
 #define	BSPACE_MAX_BIT_OFFSET	7
 
 TRAS_DECLARE_ALGO(sbs);
 
-#define	BSPACE_MIN_JN		200
-#define	BSPACE_MAX_JN		500
+/*
+ * The min and max number of samples of j or sometimes called K, the number
+ * of pairs of sequential birthdays with the spacing of more than one day.
+ */
+#define	BSPACE_MIN_JN		200		/* min number of j samples */
+#define	BSPACE_MAX_JN		500		/* max number of j samples */
 
 TRAS_DECLARE_ALGO(bspace);
 
