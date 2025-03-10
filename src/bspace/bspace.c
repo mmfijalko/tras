@@ -46,6 +46,7 @@
 #include <bspace.h>
 #include <utils.h>
 #include <igamc.h>
+#include <helper.h>
 
 #include <stdio.h>
 
