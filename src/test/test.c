@@ -169,6 +169,10 @@ struct longruns_params longruns_params = {
 .version = 1,
 };
 
+struct c1tsbits_params c1tsbits_params = {
+	.alpha = 0.01,
+};
+
 struct bmrank_params bmrank_pq31_params = {
 	.uniform = 1,
 	.m = 31,
@@ -256,7 +260,7 @@ static const struct test_algo algo_list[] = {
 	{ "brank68", &brank68_algo, &brank68_params },
 
 	{ "bspace", &bspace_algo, &bspace_params },
-	{ "c1tsbits", NULL, NULL },
+	{ "c1tsbits", &c1tsbits_algo, &c1tsbits_params, },
 	{ "craps", &craps_algo, &craps_params },
 	{ "opso", &opso_algo, &opso_params },
 	{ "otso", &otso_algo, &otso_params },
@@ -488,7 +492,6 @@ test_cmd_test(void)
 		printf("test failed to init %s algorithm\n", algo->name);
 		return (error);
 	}
-
 	size = test_desc->blocksize;
 	size = size ? size : 2048;
 	data = malloc(size);
@@ -566,7 +569,7 @@ test_select_test(const char *name)
 	return ((test_desc == NULL) ? EINVAL : 0);
 }
 
-#define	TEST_OPTSTR	"hlt:s:S"
+#define	TEST_OPTSTR	"hlt:s:S:"
 
 int main(int argc, char *argv[])
 {

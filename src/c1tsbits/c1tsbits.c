@@ -38,10 +38,13 @@
 #include <math.h>
 
 #include <tras.h>
-#include <hamming8.h>
 #include <utils.h>
+#include <cdefs.h>
+#include <igamc.h>
 #include <bits.h>
 #include <c1tsbits.h>
+
+	#include <stdio.h>
 
 /*
  * Bytes to letters map.
@@ -66,6 +69,17 @@ static uint8_t b2lmap[256] = {
 };
 
 /*
+ * Two letters word to index map.
+ */
+static uint8_t w2imap[40] = {
+	 0,  1,  2,  3,  4,  0,  0,  0, 
+	 5,  6,  7,  8,  9,  0,  0,  0, 
+	10, 11, 12, 13, 14,  0,  0,  0, 
+	15, 16, 17, 18, 19,  0,  0,  0, 
+	20, 21, 22, 23, 24,  0,  0,  0, 
+};
+
+/*
  * Letters probabilities.
  */
 static double lprob[5] = {
@@ -77,12 +91,27 @@ static double lprob[5] = {
 };
 
 /*
+ * The V1 - V2 statistics is asymptotically normal with the below parameters.
+ */
+#define	C1TSBITS_MEAN		2500
+
+#define	C1TSBITS_STDDEV		70.71
+
+/*
+ * XXX: temporary definition here to move to an include file.
+ */
+#define miss(c, cmax)   (((c) < (cmax)) ? (cmax) - (c) : 0)
+#define	min(a, b)	(((a) < (b)) ? (a) : (b))
+
+/*
  * The context for the Count-the-1's Test (Stream of Bits)
  */
 struct c1tsbits_ctx {
 	unsigned int	nbits;	/* number of bits processed */
 	uint8_t		last;	/* bits left from previous update */
-	unsigned int	freq[5];/* frequencies for nums of 1's */
+	uint32_t	word;	/* last word colected from updates */
+	unsigned int *	w4freq;	/* four letter words frequencies */
+	unsigned int *	w5freq;	/* five letter words frequencies */
 	double		alpha;	/* significance level for H0 */
 };
 
@@ -91,41 +120,25 @@ c1tsbits_init(struct tras_ctx *ctx, void *params)
 {
 	struct c1tsbits_params *p = params;
 	struct c1tsbits_ctx *c;
-	int i;
+	size_t size;
+	int error;
 
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
-	c = malloc(sizeof(struct c1tsbits_ctx));
-	if (c == NULL) {
-		ctx->state = TRAS_STATE_NONE;
-		return (ENOMEM);
-	}
+	size = sizeof(struct c1tsbits_ctx) + 625 * sizeof(unsigned int) +
+	    3125 * sizeof(unsigned int);
 
-	c->last = 0;
-	for (i = 0; i < 5; i++)
-		c->freq[i] = 0;
+	error = tras_init_context(ctx, &c1tsbits_algo, size, TRAS_F_ZERO);
+	if (error != 0)
+		return (error);
+	c = ctx->context;
 
-	c->nbits = 0;
+	c->w4freq = (unsigned int *)(c + 1);
+	c->w5freq = (unsigned int *)(c->w4freq + 625);
 	c->alpha = p->alpha;
 
-	ctx->context = c;
-	ctx->algo = &c1tsbits_algo;
-	ctx->state = TRAS_STATE_INIT;
-
 	return (0);
-}
-
-inline static void
-c1tsbits_update_freq(struct c1tsbits_ctx *c, uint8_t ones)
-{
-
-	if (ones < 3)
-		c->freq[0]++;
-	else if (ones > 5)
-		c->freq[4]++;
-	else
-		c->freq[ones - 2]++;
 }
 
 #define	__EXTRACT_BYTE_0(p, o)	\
@@ -138,6 +151,11 @@ c1tsbits_update_freq(struct c1tsbits_ctx *c, uint8_t ones)
 
 #define	__EXTRACT_BYTE(p, o)	\
 	__EXTRACT_BYTE_0(p, o) | __EXTRACT_BYTE_1(p, o)
+
+#ifdef __not_yet__
+#define	__EXTRACT_LETTER(p, o)	\
+{}
+#endif
 
 static inline uint8_t
 c1tsbits_extract_byte(uint8_t *p, unsigned int offs)
@@ -157,6 +175,8 @@ c1tsbits_extract_byte(uint8_t *p, unsigned int offs)
 	return ((uint8_t)(u16 & 0x00ff));
 }
 
+#ifdef notyet
+
 int
 c1tsbits_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
@@ -169,44 +189,91 @@ c1tsbits_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	c = ctx->context;
 	p = (uint8_t *)data;
 
-	n = nbits >> 3;
 	r = c->nbits & 0x07;
 
-	if (r > 0) {
-		if (nbits < (8 - r)) {
-			c->last |= (*p >> r) & lmask8[8 - r];
-			c->last &= mmask8[nbits + r];
-		} else {
-			offs = 8 - r;
+	if (nbits > 0) {
+		offs = 8 - r;
+		if (r > 0) {
 			c->last |= (*p >> r) & lmask8[offs];
-			h = hamming8[c->last];
-			c1tsbits_update_freq(c, h);
-			c->last = 0;
-			n = nbits - offs;
-			r = n & 0x07;
-			n = n >> 3;
-			for (i = 0; i < n; i++, offs += 8) {
-				b = __EXTRACT_BYTE(p, offs);
-				h = hamming8[b];
+			if (nbits < offs) {
+				c->last &= mmask8[nbits + r];
+			} else {
+				h = hamming8[c->last];
+				c1tsbits_update_freq(c, h);
+				c->last = 0;
+				n = nbits - offs;
+				r = n & 0x07;
+				n = n >> 3;
+				for (i = 0; i < n; i++, p++) {
+					b = __EXTRACT_BYTE(p, offs);
+					h = hamming8[b];
+					c1tsbits_update_freq(c, h);
+				}
+			}
+		} else {
+			n = nbits >> 3;
+			for (i = 0; i < n; i++, p++) {
+				h = hamming8[*p];
 				c1tsbits_update_freq(c, h);
 			}
-			if (r > 0) {
-				n = nbits >> 3;
-				c->last = p[n - 1] & mmask8[r];
-			}
+			r = nbits & 0x07;
 		}
-	} else {
-		for (i = 0; i < n; i++, p++) {
-			h = hamming8[*p];
-			c1tsbits_update_freq(c, h);
-		}
-		r = nbits & 0x07;
 		if (r > 0)
 			c->last = *p & mmask8[r];
+		break;
+	}
+	c->nbits += nbits;
+
+	return (0);
+}
+#endif
+
+#define	C1TSBITS_WORDMASK	0x00007fff
+
+	#include <stdio.h>
+
+int
+c1tsbits_update8(struct tras_ctx *ctx, void *data, unsigned int nbits)
+{
+	struct c1tsbits_ctx *c;
+	unsigned int j, n, id4, id5;
+	uint32_t word;
+	uint8_t *p;
+
+	TRAS_CHECK_UPDATE(ctx, data, nbits);
+
+	if (nbits & 0x07) {
+		printf("nbits = %u\n", nbits);
+		return (EINVAL);
 	}
 
-	/* todo: implementation */
+	c = ctx->context;
+	p = (uint8_t *)data;
 
+	j = c->nbits >> 3;
+	n = miss(j, C1TSBITS_BYTES);
+	n = min(n, (nbits >> 3));
+
+	word = c->word;
+
+	/* Get first four letters */
+	while (j < 4 && n > 0) {
+		word = (word << 3) | b2lmap[*p++];
+		n--; j++;
+	}
+	/* Iterate with five and four letters words */
+	while (n > 0) {
+		word = ((word << 3) | b2lmap[*p++]) & C1TSBITS_WORDMASK;
+		/* 6 bits map is used to calculate four letter word position */
+		id4 = 25 * w2imap[(word >> 6) & 0x3f] + w2imap[word & 0x3f];
+		/* get five letters word position */
+		id5 = 625 * ((word >> 12) & 0x07) + id4;
+		/* update frequencies */
+		c->w4freq[id4]++;
+		c->w5freq[id5]++;
+		n--;
+	}
+	c->word = word;
 	c->nbits += nbits;
 
 	return (0);
@@ -216,31 +283,68 @@ int
 c1tsbits_final(struct tras_ctx *ctx)
 {
 	struct c1tsbits_ctx *c;
-	double pvalue, sobs;
-	int sum;
+	double pvalue, s, d, v2, v1, *exp;
+	int i, j, w, l;
 
 	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
+	if (c->nbits < C1TSBITS_MIN_NBITS) {
+		printf("nbits = %u, needed = %u\n", c->nbits, C1TSBITS_MIN_NBITS);
+		return (EALREADY);
+	}
 
-	(void)c;
+	exp = malloc(3125 * sizeof(double));
+	if (exp == NULL)
+		return (ENOMEM);
 
-	/* todo: implementation */
+	/* Get expected value for five letter words */
+	for (i = 0; i < 3125; i++) {
+		exp[i] = C1TSBITS_WORDS;
+		w = i;
+		for (j = 0; j < 5; j++) {
+			l = w % 5;
+			exp[i] = exp[i] * lprob[l];
+			w = w / 5;
+		}
+	}
+	for (i = 0, v2 = 0.0; i < 3125; i++) {
+		d = (double)c->w5freq[i]  - exp[i];
+		v2 += d * d / exp[i];
+	}
+	// pvalue = igamc(3124.0 / 2, v2 / 2.0);
+	// printf("v2 = %f\n", v2);
 
-	pvalue = 0.0;
+	/* Get expected value for four letter words */
+	for (i = 0; i < 625; i++) {
+		exp[i] = C1TSBITS_WORDS;
+		w = i;
+		for (j = 0; j < 4; j++) {
+			l = w % 5;
+			exp[i] = exp[i] * lprob[l];
+			w = w / 5;
+		}
+	}
+	for (i = 0, v1 = 0.0; i < 625; i++) {
+		d = (double)c->w4freq[i] - exp[i];
+		v1 += d * d / exp[i];
+	}
+	// pvalue = igamc(624 / 2, v1 / 2.0);
+	// printf("v1 = %f\n", v1);
+	// printf("v2 - v1 = %f\n", v2 - v1);
+
+	s = fabs(v2 - v1 - C1TSBITS_MEAN) / C1TSBITS_STDDEV / sqrt((double)2.0);
+	pvalue = erfc(fabs(s));
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.discard = c->nbits & 0x07;
-	ctx->result.stats1 = 0.0;
-	ctx->result.stats2 = 0.0;
+	ctx->result.discard = c->nbits - C1TSBITS_MIN_NBITS;
 	ctx->result.pvalue1 = pvalue;
-	ctx->result.pvalue2 = 0;
 
-	ctx->state = TRAS_STATE_FINAL;
+	tras_fini_context(ctx, 0);
 
 	return (0);
 }
@@ -272,7 +376,7 @@ const struct tras_algo c1tsbits_algo = {
 	.id =		0,
 	.version =	{ 0, 1, 1 },
 	.init =		c1tsbits_init,
-	.update =	c1tsbits_update,
+	.update =	c1tsbits_update8,
 	.test =		c1tsbits_test,
 	.final =	c1tsbits_final,
 	.restart =	c1tsbits_restart,

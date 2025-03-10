@@ -33,9 +33,34 @@
 #ifndef __C1TSBITS_H__
 #define	__C1TSBITS_H__
 
+/*
+ * The Count-the-1's Test parameters
+ */
 struct c1tsbits_params {
 	double	alpha;	/* significance level for H0 */
 };
+
+/*
+ * Words to process.
+ */
+#define	C1TSBITS_WORDS		256000
+
+/*
+ * The number of letters needed to get (overlapped) all five letters words.
+ */
+#define	C1TSBITS_LETTERS	(C1TSBITS_WORDS + 4)
+
+/*
+ * The stream is treated as sequence of bytes and letters.
+ */
+#define	C1TSBITS_BYTES		C1TSBITS_LETTERS
+
+/*
+ * The number of bits is strictly defined.
+ */
+#define	C1TSBITS_MIN_NBITS	(C1TSBITS_BYTES << 3)
+
+#define	C1TSBITS_MAX_NBITS	C1TSBITS_MIN_NBITS
 
 TRAS_DECLARE_ALGO(c1tsbits);
 

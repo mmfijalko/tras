@@ -56,6 +56,7 @@
 #include <bspace.h>
 #include <craps.h>
 #include <chi2.h>
+#include <c1tsbits.h>
 #include <bmatrix.h>
 #include <bmrank.h>
 #include <brank31.h>

@@ -256,6 +256,13 @@ cusum_update_backward(struct cusum_ctx *c, void *data, unsigned int nbits)
 	return (0);
 }
 
+static int
+cusum_update_backward2(struct cusum_ctx *c, void *data, unsigned int nbits)
+{
+
+	return (ENOSYS);
+}
+
 int
 cusum_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
