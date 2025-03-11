@@ -76,7 +76,7 @@ test: hamming8.o utils.o tras.o igamc.o chi2.o chi2_utils.o frequency.o runs.o \
       blkfreq.o sphere3d.o mindist.o plot.o squeeze.o approxe.o sparse.o \
       opso.o otso.o oqso.o dna.o bstream.o excursionv.o excursion.o universal.o \
       maurer.o coron.o longruns.o bspace.o craps.o cusum.o lentz_gamma.o bmatrix.o bmrank.o brank31.o \
-      brank32.o brank68.o test.o
+      brank32.o brank68.o test.o c1tsbits.o
 	${CC} $^ ${LDFLAGS} -o test
 
 %.o: %.c

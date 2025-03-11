@@ -146,6 +146,15 @@ struct excursionv_params excursionv_params = {
 	.alpha = 0.01,
 };
 
+struct bspace_params sbs_params = {
+	.m = 1 << 9,
+	.n = 1 << 24,
+	.b = 0,
+	.q = 24,
+	.jn = 1,
+	.alpha = 0.01,
+};
+
 struct bspace_params bspace_params = {
 	.m = 512,		/* 2 ^ 9 */
 	.n = 16 * 1024 * 1024,	/* 2 ^ 24 */
@@ -258,7 +267,7 @@ static const struct test_algo algo_list[] = {
 	{ "brank32", &brank32_algo, &brank32_params },
 	{ "brank31", &brank31_algo, &brank31_params },
 	{ "brank68", &brank68_algo, &brank68_params },
-
+	{ "sbs", &sbs_algo, &sbs_params},
 	{ "bspace", &bspace_algo, &bspace_params },
 	{ "c1tsbits", &c1tsbits_algo, &c1tsbits_params, },
 	{ "craps", &craps_algo, &craps_params },
