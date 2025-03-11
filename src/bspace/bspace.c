@@ -58,9 +58,6 @@ struct sbs_ctx {
 	unsigned int	n;	/* number of days in a year */
 	unsigned int	q;	/* number of bits for a day */
 	unsigned int	b;	/* shift/bit offset for integer */
-//	unsigned int	ik;	/* current number of K values */
-//	unsigned int *	K;	/* ??? */
-//	double *	pprob;	/* Poisson theoretical probabilities */
 	unsigned int *	bdays;	/* birthdays list for single K */
 	unsigned int *	intvs;	/* intervals table */
 	unsigned int	nbits;	/* number of bits processed */
@@ -186,10 +183,6 @@ sbs_init(struct tras_ctx *ctx, void *params)
 
 	c->bdays = (unsigned int *)(c + 1);
 	c->intvs = c->bdays + p->m;
-//	c->pprob = (double *)(c->intvs + p->m);
-
-	/* todo: other initializations when defined */
-
 	c->b = 7 - p->b;
 	c->m = p->m;
 	c->q = p->q;
@@ -246,20 +239,12 @@ sbs_poisson_cdf(unsigned int k, double lambda)
 	return (igamc((double)(k + 1), lambda));
 }
 
-#if 0
-static int
-sbs_poisson_max_expected(double *exp, int k, unsigned long long m,
-    unsigned long long n)
+inline static double
+sbs_poisson_lambda(unsigned long m, unsigned long n)
 {
-	int i, kmax;
 
-	for (i = 0, kmax = 0; i < k; i++) {
-		exp[i] = spbs_poisson_pdf(i, lambda);
-		kmax++;
-	}
-	return (kmax);
+	return (pow((double)m, 3.0) / 4.0 / (double)n);
 }
-#endif
 
 int
 sbs_final(struct tras_ctx *ctx)
@@ -291,7 +276,6 @@ sbs_final(struct tras_ctx *ctx)
 	c->intvs[0] = c->bdays[0];
 	for (i = 1; i < c->m; i++)
 		c->intvs[i] = c->bdays[i] - c->bdays[i - 1];
-
 	for (i = 0; i < c->m; i++)
 		printf("intv[%d] = %u\n", i, c->intvs[i]);
 	printf("\n");
@@ -302,7 +286,7 @@ sbs_final(struct tras_ctx *ctx)
 	sbs_sort_intvs(c);
 
 	for (i = 0; i < c->m; i++)
-		printf("intv[%d] = %u\n", i, c->intvs[i]);
+		printf("intv[%d] = %u, ", i, c->intvs[i]);
 	printf("\n");
 
 	/*
@@ -310,8 +294,10 @@ sbs_final(struct tras_ctx *ctx)
 	 */
 	for (i = 0, K = 0, diff = 1; i < c->m - 1; i++) {
 		if (c->intvs[i] == c->intvs[i + 1]) {
-			if (diff)
+			if (diff) {
+				printf("spacing for c->invs[%d] = %d\n", i, c->intvs[i]);
 				K++;
+			}
 			diff = 0;
 		} else {
 			diff = 1;
@@ -323,8 +309,7 @@ sbs_final(struct tras_ctx *ctx)
 	/*
 	 * Compute the Poisson distribution parameter.
 	 */
-	lambda = (pow((double)c->m, 3.0) / 4.0 / (double)c->n);
-	pvalue = 1.0 - sbs_poisson_cdf(K, lambda);
+	pvalue = 1.0 - sbs_poisson_cdf(K, sbs_poisson_lambda(c->m, c->n));
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
@@ -383,6 +368,8 @@ struct bspace_ctx {
 	unsigned int		jidx;	/* index of current statistics */
 	unsigned int		jmax;	/* maximum number of statistics */
 	unsigned int *		jtab;	/* table of K statistics */
+	double *		jexp;	/* expected observation table */
+	unsigned int		kmax;	/* maximum number of j for chi2 */
 	unsigned int		nbits;	/* number of bits updated */
 	double			alpha;	/* significance level for H0 */
 	struct sbs_ctx		bsctx;	/* context for single birtdady test */
@@ -390,42 +377,40 @@ struct bspace_ctx {
 	struct bspace_params	param;	/* the single test params */
 };
 
-#if 0
 static unsigned int
-bspace_poisson_max_expected(double *exp, unsigned int k, unsigned long long m,
-    unsigned long long n)
+bspace_poisson_kmax(struct bspace_params *p)
 {
-	unsigned int kmax;
 	double lambda;
+	unsigned int i;
 
-	lambda = pow((double)m, 3.0) / (4.0 * (double)n);
-	for (kmax = 1; kmax < k; kmax++) {
-		exp[i] = spbs_poisson_pdf(i, lambda);
-		if (exp[i] < 5)
-			break;
+	lambda = sbs_poisson_lambda(p->m, p->n);
+
+	for (i = 0; i < p->jn; i++) {
+		if (p->n * sbs_poisson_pdf(i, lambda) <= 5)
+			return (i + 1);
 	}
-	return (kmax + 1);
+	return (p->jn);
 }
 
-static int
-bspace_poisson_fill_exp(double *exp, int k, unsigned long long m,
-    unsigned long long n)
+static void
+bspace_poisson_fill_exp(struct bspace_ctx *c)
 {
-	int i, kmax;
+	struct bspace_params *p = &c->param;
+	double lambda;
+	unsigned int i;
 
-	for (i = 0, kmax = 0; i < k; i++) {
-		exp[i] = spbs_poisson_pdf(i, lambda);
-		kmax++;
-	}
-	return (kmax);
+	lambda = sbs_poisson_lambda(p->m, p->n);
+
+	for (i = 0; i < c->kmax; i++)
+		c->jexp[i] = p->n * sbs_poisson_pdf(i, lambda);
 }
-#endif
 
 int
 bspace_init(struct tras_ctx *ctx, void *params)
 {
 	struct bspace_params *p = params;
 	struct bspace_ctx *c;
+	unsigned int kmax;
 	size_t size;
 	int error;
 
@@ -436,7 +421,10 @@ bspace_init(struct tras_ctx *ctx, void *params)
 	if (error != 0)
 		return (error);
 
-	size = sizeof(struct bspace_ctx) + p->jn * sizeof(unsigned int);
+	kmax = bspace_poisson_kmax(p);
+
+	size = sizeof(struct bspace_ctx) + p->jn * sizeof(unsigned int) +
+	    kmax * sizeof(double);
 
 	error = tras_init_context(ctx, &bspace_algo, size, TRAS_F_ZERO);
 	if (error != 0)
@@ -451,9 +439,12 @@ bspace_init(struct tras_ctx *ctx, void *params)
 	c->param.jn = 1;
 	c->param.alpha = p->alpha;
 
+	c->jidx = 0;
 	c->jtab = (unsigned int *)(c + 1);
 	c->jmax = p->jn;
-	c->jidx = 0;
+	c->jexp = (double *)(c->jtab + c->jmax);
+	c->kmax = kmax;
+
 	c->alpha = p->alpha;
 
 	return (0);
@@ -464,34 +455,51 @@ bspace_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 {
 	struct bspace_ctx *c;
 	struct sbs_ctx *sbc;
-	unsigned int i, k, b, n, sn;
+	uint32_t *p;
+	unsigned int k, b, n, w;
+	int error;
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
-
-	c = ctx->context;
 
 	if (nbits & 0x1f)
 		return (EINVAL);
 
-	/* The number of words updated */
-	b = c->nbits / 32;
+	c = ctx->context;
+	p = data;
+
+	/* The number of words updated for single test */
+	b = (c->nbits >> 5) % c->param.m;
+
+	/* number of words to update to get single result. */
+	w = miss(c->param.m, b);
 
 	/* How many single statistics to update */
 	n = miss(c->jidx, c->jmax);
 
-#ifdef notyet
-	/* The number of words for single birthday spacing test */
- 	sn =
-#endif
-
-	n = min(n, nbits / 32);
-	n = n + b;
-
-	if (c->jidx >= c->jmax) {
-		c->nbits += nbits;
-		return (0);
+	while (k > 0) {
+		if (b == 0) {
+			error = sbs_init(&c->sbctx, &c->param);
+			if (error != 0) {
+				/* nothing we can do; internal init failed */
+				return (error);
+			}
+			w = c->param.m;
+		}
+		if (w == 0) {
+			error = sbs_final(&c->sbctx);
+			if (error != 0) {
+				/* The code is broken, can't finalize */
+				return (error);
+			}
+			c->jtab[c->jidx] = c->sbctx.result.stats1;
+			c->jidx++;
+			b = 0;
+		} else {
+			b++;
+		}
+		w--;
+		k--;
 	}
-
 	c->nbits += nbits;
 
 	return (0);
@@ -501,25 +509,42 @@ int
 bspace_final(struct tras_ctx *ctx)
 {
 	struct bspace_ctx *c;
-	double pvalue;
+	struct bspace_params *p;
+	unsigned int i;
+	double pvalue, s;
 
 	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
+	p = &c->param;
 
 	if (c->jidx < c->jmax)
 		return (EALREADY);
 
-	/* XXX: temporary */
+	bspace_poisson_fill_exp(c);
+
+	/*
+	 * TODO: chi square test.
+	 */
 	pvalue = 0.0;
+	s = 0.0;
+
+#ifdef notyet
+	for (i = 0; i < c->kmax; i++) {
+		s += c->
+	}
+#endif
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
 	else
 		ctx->result.status = TRAS_TEST_PASSED;
 
-	ctx->result.discard = 0; /* ??? */
+	ctx->result.discard = 0;
 	ctx->result.pvalue1 = pvalue;
+	ctx->result.pvalue2 = 0.0;
+	ctx->result.stats1 = s;
+	ctx->result.stats2 = 0.0;
 
 	tras_fini_context(ctx, 0);
 
