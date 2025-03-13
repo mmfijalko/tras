@@ -257,13 +257,10 @@ static const struct test_algo algo_list[] = {
 	{ "sphere3d", NULL, NULL },
 	{ "squeeze", &squeeze_algo, &squeeze_params },
 	{ "bkampmassey", NULL, NULL },
-
 	{ "bmrank-pq31", &bmrank_algo, &bmrank_pq31_params },
 	{ "bmrank-pq32", &bmrank_algo, &bmrank_pq32_params },
 	{ "bmrank-pq68", &bmrank_algo, &bmrank_pq68_params },
-
 	{ "bmrank-pq31-non-uniform", &bmrank_algo, &bmrank_pq31_params_nonuni },
-
 	{ "brank32", &brank32_algo, &brank32_params },
 	{ "brank31", &brank31_algo, &brank31_params },
 	{ "brank68", &brank68_algo, &brank68_params },
@@ -513,7 +510,6 @@ test_cmd_test(void)
 	id = 0;
 
 	n = (test_total > 0) ? test_total : UINT_MAX;
-
 	while (n > 0) {
 		if (ntest == 0 && id != 0) {
 			error = algo->restart(&ctx, test_desc->params);
