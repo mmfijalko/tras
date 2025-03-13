@@ -189,6 +189,8 @@ sbs_init(struct tras_ctx *ctx, void *params)
 	c->n = p->n;
 	c->alpha = p->alpha;
 
+	printf("%s: sbs context inited\n", __func__);
+
 	return (0);
 }
 
@@ -204,6 +206,8 @@ sbs_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	if (nbits & 0x1f)
 		return (EINVAL);
 
+printf("%s: update with nbits = %u\n", __func__, nbits);
+
 	c = ctx->context;
 	p = (uint32_t *)data;
 
@@ -215,6 +219,7 @@ sbs_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	for (i = b; i < n; i++, p++)
 		c->bdays[i] = sbs_extract32(p, c->b, c->q);
 	c->nbits += nbits;
+printf("%s: update with nbits = %u done\n", __func__, nbits);
 
 	return (0);
 }
@@ -261,14 +266,16 @@ sbs_final(struct tras_ctx *ctx)
 	if (c->nbits / 32 < c->m)
 		return (EALREADY);
 
+printf("%s: calling final with updated c->nbits = %u\n", __func__, c->nbits);
 	/*
 	 * Sort generated birthdays, let them be positioned as in calendar.
 	 */
 	sbs_sort_bdays(c);
-
+#if 0
 	for (i = 0; i < c->m; i++)
 		printf("b[%d] = %u\n", i, c->bdays[i]);
 	printf("\n");
+#endif
 
 	/*
 	 * Create intervals.
@@ -276,18 +283,21 @@ sbs_final(struct tras_ctx *ctx)
 	c->intvs[0] = c->bdays[0];
 	for (i = 1; i < c->m; i++)
 		c->intvs[i] = c->bdays[i] - c->bdays[i - 1];
+#if 0
 	for (i = 0; i < c->m; i++)
 		printf("intv[%d] = %u\n", i, c->intvs[i]);
 	printf("\n");
+#endif
 
 	/*
 	 * Sort intervals list.
 	 */
 	sbs_sort_intvs(c);
-
+#if 0
 	for (i = 0; i < c->m; i++)
 		printf("intv[%d] = %u, ", i, c->intvs[i]);
 	printf("\n");
+#endif
 
 	/*
 	 * Count spacing values between birthdays that occurs more than once.
@@ -295,7 +305,7 @@ sbs_final(struct tras_ctx *ctx)
 	for (i = 0, K = 0, diff = 1; i < c->m - 1; i++) {
 		if (c->intvs[i] == c->intvs[i + 1]) {
 			if (diff) {
-				printf("spacing for c->invs[%d] = %d\n", i, c->intvs[i]);
+//				printf("spacing for c->invs[%d] = %d\n", i, c->intvs[i]);
 				K++;
 			}
 			diff = 0;
@@ -304,7 +314,7 @@ sbs_final(struct tras_ctx *ctx)
 		}
 	}
 
-	printf("%s: final K = %u\n", __func__, K);
+//	printf("%s: final K = %u\n", __func__, K);
 
 	/*
 	 * Compute the Poisson distribution parameter.
@@ -367,8 +377,8 @@ const struct tras_algo sbs_algo = {
 struct bspace_ctx {
 	unsigned int		jidx;	/* index of current statistics */
 	unsigned int		jmax;	/* maximum number of statistics */
-	unsigned int *		jtab;	/* table of K statistics */
-	double *		jexp;	/* expected observation table */
+	unsigned int *		jtab;	/* histogram of K statistics */
+	double *		jexp;	/* expected observations table */
 	unsigned int		kmax;	/* maximum number of j for chi2 */
 	unsigned int		nbits;	/* number of bits updated */
 	double			alpha;	/* significance level for H0 */
@@ -399,10 +409,12 @@ bspace_poisson_fill_exp(struct bspace_ctx *c)
 	double lambda;
 	unsigned int i;
 
+printf("%s: filling exp for kmax = %u\n", __func__, c->kmax);
+
 	lambda = sbs_poisson_lambda(p->m, p->n);
 
 	for (i = 0; i < c->kmax; i++)
-		c->jexp[i] = p->n * sbs_poisson_pdf(i, lambda);
+		c->jexp[i] = c->jmax * sbs_poisson_pdf(i, lambda);
 }
 
 int
@@ -414,6 +426,8 @@ bspace_init(struct tras_ctx *ctx, void *params)
 	size_t size;
 	int error;
 
+printf("%s: bspace initialization\n", __func__);
+
 	TRAS_CHECK_INIT(ctx);
 	TRAS_CHECK_PARA(p, p->alpha);
 
@@ -422,6 +436,7 @@ bspace_init(struct tras_ctx *ctx, void *params)
 		return (error);
 
 	kmax = bspace_poisson_kmax(p);
+printf("%s: bspace kmax = %u\n", __func__, kmax);
 
 	size = sizeof(struct bspace_ctx) + p->jn * sizeof(unsigned int) +
 	    kmax * sizeof(double);
@@ -447,6 +462,9 @@ bspace_init(struct tras_ctx *ctx, void *params)
 
 	c->alpha = p->alpha;
 
+printf("%s: inited, m = %llu, n = %llu, b = %u, q = %u\n", __func__,
+    c->param.m, c->param.n, c->param.b, c->param.q);
+
 	return (0);
 }
 
@@ -456,8 +474,10 @@ bspace_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	struct bspace_ctx *c;
 	struct sbs_ctx *sbc;
 	uint32_t *p;
-	unsigned int k, b, n, w;
+	unsigned int k, b, n, w, K;
 	int error;
+
+printf("%s: update %u bits\n", __func__, nbits);
 
 	TRAS_CHECK_UPDATE(ctx, data, nbits);
 
@@ -470,14 +490,23 @@ bspace_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	/* The number of words updated for single test */
 	b = (c->nbits >> 5) % c->param.m;
 
-	/* number of words to update to get single result. */
-	w = miss(c->param.m, b);
+	/* The number of words to update to get single result. */
+	w = miss(b, c->param.m);
 
 	/* How many single statistics to update */
 	n = miss(c->jidx, c->jmax);
 
+	/* How many words to update at most */
+	k = (n == 0) ? 0 : (n * c->param.m - b);
+	k = min(k, nbits / 32);
+
+printf("%s: starting update loop with b = %u, w = %u, n = %u, k = %u\n",
+    __func__, b, w, n, k);
+
 	while (k > 0) {
+printf("%s: up of loop for b = %u, k = %u, w = %u\n", __func__, b, k, w);
 		if (b == 0) {
+printf("%s: b = 0, initialize sbs algo\n", __func__);
 			error = sbs_init(&c->sbctx, &c->param);
 			if (error != 0) {
 				/* nothing we can do; internal init failed */
@@ -485,20 +514,38 @@ bspace_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 			}
 			w = c->param.m;
 		}
+
+printf("%s: checking update for w = %u and k = %u\n", __func__, w, k);
+		w = min(w, k);
+printf("%s: max to update with k is w = %u\n", __func__, w);
+		if (w != 0) {
+printf("%s: update with w = %u words\n", __func__, w);
+			error = sbs_update(&c->sbctx, p, w * sizeof(uint32_t) * 8);
+			if (error != 0) {
+printf("%s: failed to update sbs test with w = %u words\n", __func__, w);
+				return (error);
+			}
+			b += w;
+			k -= w;
+			p += w;
+			w = miss(b, c->param.m);
+		}
+printf("%s: checking state if ready to final, with b = %u, k = %u, w = %u\n",
+    __func__, b, k, w);
 		if (w == 0) {
+printf("%s: calling final because w = 0\n", __func__);
 			error = sbs_final(&c->sbctx);
 			if (error != 0) {
 				/* The code is broken, can't finalize */
 				return (error);
 			}
-			c->jtab[c->jidx] = c->sbctx.result.stats1;
+			K = (unsigned int)c->sbctx.result.stats1;
+			if (K < c->jmax)
+				c->jtab[K]++;
 			c->jidx++;
 			b = 0;
-		} else {
-			b++;
+			sbs_free(&c->sbctx);
 		}
-		w--;
-		k--;
 	}
 	c->nbits += nbits;
 
@@ -511,29 +558,40 @@ bspace_final(struct tras_ctx *ctx)
 	struct bspace_ctx *c;
 	struct bspace_params *p;
 	unsigned int i;
-	double pvalue, s;
+	double pvalue, s, d;
 
 	TRAS_CHECK_FINAL(ctx);
 
 	c = ctx->context;
 	p = &c->param;
 
+printf("%s: final, state is: jidx = %u, jmax = %u\n", __func__, c->jidx, c->jmax);
+
 	if (c->jidx < c->jmax)
 		return (EALREADY);
 
 	bspace_poisson_fill_exp(c);
 
-	/*
-	 * TODO: chi square test.
-	 */
-	pvalue = 0.0;
-	s = 0.0;
+for (s = 0, i = 0; i < c->kmax; i++) {
+	printf("jtab[%u] = %u\n", i, c->jtab[i]);
+	s = s + c->jtab[i];
+}
+printf("-------------------------------------------\n");
+printf("sum = %u\n", (unsigned int)s);
 
-#ifdef notyet
-	for (i = 0; i < c->kmax; i++) {
-		s += c->
+for (s = 0, i = 0; i < c->kmax; i++) {
+	printf("jexp[%u] = %f\n", i, c->jexp[i]);
+	s = s + c->jexp[i];
+}
+printf("-------------------------------------------\n");
+printf("sum = %f\n", s);
+
+	for (i = 0, s = 0.0; i < c->kmax; i++) {
+		d = (double)c->jtab[i] - c->jexp[i];
+		s += d * d / c->jexp[i];
 	}
-#endif
+
+	pvalue = igamc((double)c->kmax / 2.0, s / 2.0);
 
 	if (pvalue < c->alpha)
 		ctx->result.status = TRAS_TEST_FAILED;
