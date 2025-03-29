@@ -5,6 +5,8 @@ CFLAGS+=-I${CURDIR}/../include/
 CFLAGS+=-I${CURDIR}/../cephes/
 CFLAGS+=-I${CURDIR}/../
 
+CFLAGS+=-DSERIAL_DEBUG
+
 VPATH+=${CURDIR}/../cephes/
 
 all: igamc.o serial.o
