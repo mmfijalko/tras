@@ -43,17 +43,17 @@
 #include <igamc.h>
 #include <serial.h>
 
-#include <stdio.h>
-
 #ifdef SERIAL_DEBUG
 
-#define	serial_printf(msg, ...) do {			\
+#include <stdio.h>
+
+#define	serial_debug(msg, ...) do {			\
 	printf("%s: " msg, __func__, ##__VA_ARGS__);	\
 } while (0)
 
 #else
 
-#define serial_printf(msg, ...)
+#define serial_debug(msg, ...)
 
 #endif
 
@@ -121,6 +121,8 @@ serial_init(struct tras_ctx *ctx, void *params)
 	c->m = p->m;
 	c->alpha = p->alpha;
 
+	serial_debug("%s: serial test inited for m=%u\n", __func__, p->m);
+
 	return (0);
 }
 
@@ -132,10 +134,10 @@ serial_update_bits(struct serial_ctx *c, unsigned int offs, void *data,
     unsigned int nbits)
 {
 	uint32_t block, m0, m1, m2;
-	uint8_t *p, m;
+	uint8_t *p, m, j;
 	unsigned int n;
 
-	serial_printf("update bits, offs=%u, nbits=%u\n", offs, nbits);
+	serial_debug("update bits, offs=%u, nbits=%u\n", offs, nbits);
 
 	m0 = (1 << c->m) - 1;
 	m1 = m0 >> 1;
@@ -147,17 +149,18 @@ serial_update_bits(struct serial_ctx *c, unsigned int offs, void *data,
 
 	block = c->block;
 
-	while (n > 0) {
+	while (n-- > 0) {
 		block = (block << 1) | ((*p & m) ? 1 : 0);
 		c->m0[block & m0]++;
-		c->m1[block & m1]++;
-		c->m2[block & m2]++;
+		if (m1)
+			c->m1[block & m1]++;
+		if (m2)
+			c->m2[block & m2]++;
 		m = m >> 1;
 		if (m == 0) {
 			p++;
 			m = 0x80;
 		}
-		n--;
 	}
 	c->block = block;
 }
@@ -182,8 +185,8 @@ serial_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	p = (uint8_t *)data;
 
 	m0 = (1 << c->m) - 1;
-	m1 = (1 << (c->m - 1)) - 1;
-	m2 = (1 << (c->m - 2)) - 1;
+	m1 = m0 >> 1;
+	m2 = m1 >> 1;
 
 	block = c->block;
 
@@ -201,9 +204,9 @@ serial_update(struct tras_ctx *ctx, void *data, unsigned int nbits)
 			for (i = 0, m = 0x80; i < j; i++, m = m >> 1) {
 				block = (block << 1) | ((*p & m) ? 1 : 0);
 				k++;
-				if (k >= (c->m - 1))
+				if (m1 && k >= (c->m - 1))
 					c->m1[block & m1]++;
-				if (k >= (c->m - 2))
+				if (m2 && k >= (c->m - 2))
 					c->m2[block & m2]++;
 			}
 			n = n - j;
@@ -237,7 +240,7 @@ serial_update2(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	if (nbits == 0)
 		return (0);
 
-	serial_printf("processing %u bits\n", nbits);
+	serial_debug("processing %u bits\n", nbits);
 
 	c = ctx->context;
 	p = (uint8_t *)data;
@@ -251,31 +254,33 @@ serial_update2(struct tras_ctx *ctx, void *data, unsigned int nbits)
 	 */
 	k = c->nbits;
 
-	if (k < (c->m - 1)) {
-		serial_printf("updating first m - 1 bits\n");
+	offs = 0;
+
+	if (c->nbits < (c->m - 1)) {
+		serial_debug("updating first m - 1 bits\n");
 		block = c->block;
-		n = c->m - 1 - k;
+		n = c->m - 1 - c->nbits;
 		n = min(n, nbits);
 		offs = n;
+		k = c->nbits + n;
 		while (n > 0) {
 			j = min(n, 8);
 			for (i = 0, m = 0x80; i < j; i++, m >>= 1)
 				block = (block << 1) | ((*p & m) ? 1 : 0);
 			n = n - j;
-			k = k + j;
 			p++;
 		}
 		c->block = block;
 		if (k == (c->m - 1)) {
 			c->first = block;
-			c->m1[block & m1]++;
-			c->m2[block & m2]++;
-			block = block >> 1;
-			c->m2[block & m2]++;
-			serial_printf("first block = %x\n", c->first);
+			if (m1)
+				c->m1[block & m1]++;
+			if (m2) {
+				c->m2[block & m2]++;
+				block = block >> 1;
+				c->m2[block & m2]++;
+			}
 		}
-	} else {
-		offs = 0;
 	}
 
 	if (nbits > offs) {
@@ -304,7 +309,7 @@ serial_final(struct tras_ctx *ctx)
 	double pvalue1, pvalue2;
 	uint8_t b;
 
-unsigned int sf, total, mmin, mmax;
+	serial_debug("%s: final\n", __func__);
 
 	TRAS_CHECK_FINAL(ctx);
 
@@ -313,6 +318,7 @@ unsigned int sf, total, mmin, mmax;
 	if (c->nbits < serial_min_bits(ctx))
 		return (EALREADY);
 
+	/* Update for extended sequence with m -1 bits */
 	n = c->m - 1;
 	c->first = c->first << (8 - (n & 0x07));
 	while (n > 0) {
@@ -323,52 +329,27 @@ unsigned int sf, total, mmin, mmax;
 		n = n - k;
 	}
 
-//////////////////////////////////////////////////////////////
-
+#ifdef SERIAL_DEBUG
 	sm = 1 << c->m;
+	serial_debug("table for m0\n");
+	for (i = 0; i < sm; i++)
+		serial_debug("m0[%u] = %u, \n", i, c->m0[i]);
 
-	mmax = 0;
-	mmin = c->nbits;
-	serial_printf("table for m0\n");
-	for (i = 0, total = 0; i < sm; i++) {
-		serial_printf("m0[%u] = %u, \n", i, c->m0[i]);
-		if (c->m0[i] < mmin)
-			mmin = c->m0[i];
-		if (c->m0[i] > mmax)
-			mmax = c->m0[i];
-		total += c->m0[i];
+	sm = sm >> 1;
+	if (sm) {
+		serial_debug("table for m1\n");
+		for (i = 0; i < sm; i++)
+			serial_debug("m1[%u] = %u, \n", i, c->m1[i]);
 	}
-	serial_printf("total for m0=%u\n", total);
-	serial_printf("mmin = %u, mmax = %u\n", mmin, mmax);
 
-	serial_printf("table for m1\n");
-	mmax = 0;
-	mmin = c->nbits;
-	for (i = 0, total = 0; i < sm / 2; i++) {
-		serial_printf("m1[%u] = %u, \n", i, c->m1[i]);
-		if (c->m1[i] < mmin)
-			mmin = c->m1[i];
-		if (c->m1[i] > mmax)
-			mmax = c->m1[i];
-		total += c->m1[i];
-	}
-	serial_printf("total for m1=%u\n", total);
-	serial_printf("mmin = %u, mmax = %u\n", mmin, mmax);
+	sm = sm >> 1;
 
-	serial_printf("table for m2\n");
-	mmax = 0;
-	mmin = c->nbits;
-	for (i = 0, total = 0; i < sm / 4; i++) {
-		serial_printf("m2[%u] = %u, \n", i, c->m2[i]);
-		if (c->m2[i] < mmin)
-			mmin = c->m2[i];
-		if (c->m2[i] > mmax)
-			mmax = c->m2[i];
-		total += c->m2[i];
+	if (sm) {
+		serial_debug("table for m2\n");
+		for (i = 0; i < sm; i++)
+			serial_debug("m2[%u] = %u, \n", i, c->m2[i]);
 	}
-	serial_printf("total for m2=%u\n", total);
-	serial_printf("mmin = %u, mmax = %u\n", mmin, mmax);
-//////////////////////////////////////////////////////////////
+#endif
 
 	n = c->nbits;
 	m = c->m;
@@ -376,23 +357,17 @@ unsigned int sf, total, mmin, mmax;
 	sm = (1 << m);
 	for (i = 0, sv0 = 0; i < sm; i++)
 		sv0 += c->m0[i] * c->m0[i];
-	serial_printf("sv0 = %u\n", sv0);
 	psim0 = (double)sv0 / n * sm - n;
-	serial_printf("psim0 = %f\n", psim0);
 
 	sm = sm / 2;
 	for (i = 0, sv1 = 0; i < sm; i++)
 		sv1 += c->m1[i] * c->m1[i];
-	serial_printf("sv1 = %u\n", sv1);
-	psim1 = (double)sv1 / n * sm - n;
-	serial_printf("psim1 = %f\n", psim1);
+	psim1 = (((int)m - 1) > 0) ? (double)sv1 / n * sm - n : 0;
 
 	sm = sm / 2;
 	for (i = 0, sv2 = 0; i < sm; i++)
 		sv2 += c->m2[i] * c->m2[i];
-	serial_printf("sv2 = %u\n", sv2);
-	psim2 = ((m - 2) <= 0) ? 0.0 : (double)sv2 / n * sm - n;
-	serial_printf("psim2 = %f\n", psim2);
+	psim2 = (((int)m - 1) > 0) ? (double)sv2 / n * sm - n : 0;
 
 	/* Calculate first test statistics delta psi square for m */
 	dpsim1 = psim0 - psim1;
@@ -400,13 +375,21 @@ unsigned int sf, total, mmin, mmax;
 	/* Calculate second test statistics square psi square for m */
 	dpsim2 = psim0 - 2 * psim1 + psim2;
 
-	/* todo: Calculate first p-value for the first statistics */
-	pvalue1 = igamc(pow(2, m - 2), dpsim1);
-	serial_printf("getting imagc(%f, %f) = %f\n", pow(2, m - 2), dpsim1, pvalue1);
+	/* Calculate first p-value for the first statistics */
+	pvalue1 = igamc(pow(2, (int)m - 2), dpsim1);
 
-	/* todo: Calculate second p-value for the second statistics */
-	pvalue2 = igamc(pow(2, m - 3), dpsim2);
-	serial_printf("getting imagc(%f, %f) = %f\n", pow(2, m - 3), dpsim2, pvalue2);
+	/* Calculate second p-value for the second statistics */
+	pvalue2 = igamc(pow(2, (int)m - 3), dpsim2);
+
+#ifdef SERIAL_DEBUG
+	serial_debug("sv0 = %u, psim0 = %f\n", sv0, psim0);
+	serial_debug("sv1 = %u, psim1 = %f\n", sv1, psim1);
+	serial_debug("sv2 = %u, psim2 = %f\n", sv2, psim2);
+	serial_debug("imagc(%f, %f) = %f\n", pow(2, m - 2),
+	    dpsim1, pvalue1);
+	serial_debug("imagc(%f, %f) = %f\n", pow(2, m - 3),
+	    dpsim2, pvalue2);
+#endif
 
 	/* Determine and store results */
 	if (pvalue1 < c->alpha || pvalue2 < c->alpha)
