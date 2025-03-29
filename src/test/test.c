@@ -493,7 +493,7 @@ test_select_test(const char *name)
 	return ((test_desc == NULL) ? EINVAL : 0);
 }
 
-#define	TEST_OPTSTR	"hlt:s:S"
+#define	TEST_OPTSTR	"hlt:s:S:"
 
 int main(int argc, char *argv[])
 {

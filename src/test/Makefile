@@ -27,6 +27,8 @@ CFLAGS+=-I${CURDIR}/../serial/
 CFLAGS+=-I${CURDIR}/../cephes/
 CFLAGS+=-I${CURDIR}/../chi2/
 
+CFLAGS+=-D SERIAL_DEBUG
+
 VPATH+=${CURDIR}/../utils/
 VPATH+=${CURDIR}/../tras/
 VPATH+=${CURDIR}/../math/
