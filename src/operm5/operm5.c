@@ -57,11 +57,6 @@ operm5_perm_to_index(uint32_t *perm, int n)
 	uint32_t fac = 1;
 	int i, j;
 
-	for (i = n - 1; i >= 0; i--) {
-		for (j = i; j >
-
-	}
-
 	return (0);
 }
 
