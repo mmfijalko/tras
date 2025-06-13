@@ -28,7 +28,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * The Minimum Distance Test.
+ * The overlapping permutation test (operm5).
  */
 
 #include <stdint.h>
@@ -50,6 +50,27 @@ struct operm5_ctx {
 	unsigned int	nbits;	/* number of bits processed */
 	double		alpha;	/* significance level for H0 */
 };
+
+static int
+operm5_perm_to_index(uint32_t *perm, int n)
+{
+	uint32_t fac = 1;
+	int i, j;
+
+	for (i = n - 1; i >= 0; i--) {
+		for (j = i; j >
+
+	}
+
+	return (0);
+}
+
+static int
+operm5_index_to_perm(uint32_t *perm, int n, uint32_t index)
+{
+
+	return (0);
+}
 
 int
 operm5_init(struct tras_ctx *ctx, void *params)
